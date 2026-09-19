@@ -13,7 +13,9 @@ Relacionado/inspiração (todos open source): `lidge-jun/opencodex` (proxy unive
 
 ```
 Codex CLI/App --(Responses)--> http://127.0.0.1:11447/v1/responses --sanitiza--> https://opencode.ai/zen/go/v1/responses
-Claude Code --(Messages)-----> http://127.0.0.1:11447/v1/messages  --passthru--> https://opencode.ai/zen/go/v1/messages
+Claude Code --(Messages)-----> http://127.0.0.1:11447/v1/messages --+--> passthrough /messages (14 modelos)
+                                                                  +--> bridge p/ /chat (12 modelos: GLM, Kimi 2.x, MiMo, Hy, Omen)
+                                                                  +--> bridge p/ /responses (4 modelos: Muse x2, GPT Luna, Grok)
 Qualquer client OpenAI ------> http://127.0.0.1:11447/v1/chat/completions -----> https://opencode.ai/zen/go/v1/chat/completions
 ```
 

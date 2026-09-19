@@ -13,6 +13,16 @@ import { KeyPool, loadLedger } from "./keypool.mjs";
 import { sanitizeResponsesBody, modelPolicy } from "./policies.mjs";
 import { estimateUsd } from "./prices.mjs";
 import { resolveConfigPath, dataDirFor } from "./config-path.mjs";
+import {
+  bridgeTarget,
+  translateMessagesRequest,
+  translateMessagesToResponses,
+  translateChatResponse,
+  translateResponsesResponse,
+  createChatToAnthropicStream,
+  createResponsesToAnthropicStream,
+  anthropicError,
+} from "./anthropic-bridge.mjs";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const CONFIG_PATH = resolveConfigPath();
@@ -115,6 +125,96 @@ async function forward(upPath, clientBody, clientHeaders, opts = {}) {
   throw new Error(lastErr || "sem keys disponiveis (orcamento esgotado?)");
 }
 
+// POST /messages com bridge: Anthropic -> /chat ou /responses -> Anthropic.
+async function handleBridgedMessages(req, res, aBody, model, policy, reqPath, target) {
+  const toResponses = target === "responses";
+  const upBody =
+    toResponses ? translateMessagesToResponses(aBody, policy) : translateMessagesRequest(aBody, policy);
+  const wantStream = aBody.stream === true;
+  upBody.stream = wantStream;
+  if (wantStream && !toResponses) upBody.stream_options = { include_usage: true };
+  let up, entry;
+  try {
+    ({ res: up, entry } = await forward(toResponses ? "/responses" : "/chat/completions", upBody, req.headers, {}));
+  } catch (e) {
+    res.writeHead(502, { "content-type": "application/json" });
+    res.end(JSON.stringify(anthropicError(502, e?.message)));
+    return;
+  }
+  const finish = (input, output, status, errText) => {
+    const usd = pool.record(entry, model, input, output) || estimateUsd(model, input, output);
+    logUsage({
+      at: new Date().toISOString(), key: entry.name, model, path: reqPath,
+      status, input_tokens: input, output_tokens: output, usd_estimate: usd,
+      bridged: true,
+      ...(errText ? { upstream_error: errText } : {}),
+    });
+    pool.advance();
+  };
+  if (!up.ok) {
+    const text = await up.text().catch(() => "");
+    res.writeHead(up.status, { "content-type": "application/json" });
+    res.end(JSON.stringify(anthropicError(up.status, text)));
+    finish(0, 0, up.status, text.slice(0, 300));
+    return;
+  }
+  if (!wantStream) {
+    const j = await up.json().catch(() => null);
+    if (!j) {
+      res.writeHead(502, { "content-type": "application/json" });
+      res.end(JSON.stringify(anthropicError(502, "resposta invalida do upstream")));
+      finish(0, 0, 502);
+      return;
+    }
+    const a = toResponses ? translateResponsesResponse(j, model) : translateChatResponse(j, model);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(a));
+    finish(a.usage.input_tokens, a.usage.output_tokens, 200);
+    return;
+  }
+  // Streaming: traduz SSE -> SSE Anthropic em tempo real.
+  res.writeHead(200, {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache",
+    connection: "keep-alive",
+  });
+  const tr = toResponses ? createResponsesToAnthropicStream() : createChatToAnthropicStream();
+  const reader = up.body.getReader();
+  const dec = new TextDecoder();
+  let sseBuf = "";
+  const flush = () => {
+    const parts = sseBuf.split("\n\n");
+    sseBuf = parts.pop();
+    for (const part of parts) {
+      let event = null;
+      for (const line of part.split("\n")) {
+        const t = line.trim();
+        if (t.startsWith("event:")) event = t.slice(6).trim();
+        else if (t.startsWith("data:")) {
+          const payload = t.slice(5).trim();
+          if (payload === "[DONE]") continue;
+          try {
+            res.write(toResponses ? tr.push(event, JSON.parse(payload), model) : tr.push(JSON.parse(payload), model));
+          } catch { /* chunk parcial: ignora */ }
+        }
+      }
+    }
+  };
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      sseBuf += dec.decode(value, { stream: true });
+      flush();
+    }
+    flush();
+  } catch { /* conexao caiu: encerra graciosamente */ }
+  const end = tr.finish();
+  res.write(end.sse);
+  res.end();
+  finish(end.usage.input, end.usage.output, 200);
+}
+
 export const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   try {
@@ -174,6 +274,11 @@ export const server = http.createServer(async (req, res) => {
         droppedChars = s.droppedChars || 0;
       } else if (p === "/messages") {
         upPath = "/messages";
+        // Bridge p/ modelos sem /messages nativo (traduz p/ /chat e de volta).
+        if (bridgeTarget(model, policy)) {
+          await handleBridgedMessages(req, res, body, model, policy, url.pathname, bridgeTarget(model, policy));
+          return;
+        }
       } else if (typeof body.max_tokens === "number" && policy.maxOutputTokens) {
         body.max_tokens = Math.min(body.max_tokens, policy.maxOutputTokens);
       }

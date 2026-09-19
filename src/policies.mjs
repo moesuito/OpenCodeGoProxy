@@ -134,5 +134,7 @@ export function modelPolicy(model, config) {
     // Remove namespaces mcp__codex_apps__* (Gmail/GitHub/Drive...). Ordem:
     // per-model > defaults.stripCodexApps > true nos strict / false nos demais.
     stripCodexApps: per.stripCodexApps ?? config.defaults?.stripCodexApps ?? isStrictUpstream(model),
+    // Bridge /messages -> /chat ("auto": so p/ modelos sem /messages nativo).
+    bridge: per.bridge ?? config.defaults?.bridge ?? "auto",
   };
 }

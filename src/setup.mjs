@@ -91,9 +91,11 @@ function setupShims(catalogPath) {
     "codex-oc-app-restore.cmd",
     `@echo off\r\nREM Volta o config padrao anterior ao codex-oc-app\r\nnode "${path.join(ROOT, "src", "app-restore.mjs")}"\r\n`
   );
+  // settings.json do Claude tem precedencia sobre env: o shim gera um
+  // settings adicional com o proxy e passa via --settings (merge com override).
   writeShim(
     "claude-oc.cmd",
-    `@echo off\r\nREM Claude Code CLI via proxy OpenCodeGoProxy (nao altera o padrao)\r\n${HEALTH_CHECK}set ANTHROPIC_BASE_URL=http://127.0.0.1:${PORT}\r\nset ANTHROPIC_API_KEY=local\r\nif "%OC_PROXY_MODEL%"=="" set OC_PROXY_MODEL=${CLAUDE_MODEL}\r\nset ANTHROPIC_MODEL=%OC_PROXY_MODEL%\r\nclaude %*\r\n`
+    `@echo off\r\nREM Claude Code CLI via proxy OpenCodeGoProxy (nao altera o padrao)\r\n${HEALTH_CHECK}if "%OC_PROXY_MODEL%"=="" set OC_PROXY_MODEL=${CLAUDE_MODEL}\r\n(echo {"env": {"ANTHROPIC_BASE_URL": "http://127.0.0.1:${PORT}", "ANTHROPIC_API_KEY": "local", "ANTHROPIC_MODEL": "%OC_PROXY_MODEL%"}}) > "%TEMP%\\claude-oc-settings.json"\r\nclaude --settings "%TEMP%\\claude-oc-settings.json" --model "%OC_PROXY_MODEL%" %*\r\n`
   );
 }
 
