@@ -6,7 +6,7 @@
 
 const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh", "max"];
 
-import { reasoningFor } from "./model-meta.mjs";
+import { reasoningFor, isStrictUpstream } from "./model-meta.mjs";
 
 function hasInternalRef(obj) {
   return JSON.stringify(obj).includes('"$ref"');
@@ -52,10 +52,18 @@ function customToFunction(tool) {
   return null; // custom desconhecido: remove (o upstream rejeitaria de qualquer forma)
 }
 
-function sanitizeTools(tools, model) {
+function sanitizeTools(tools, model, opts = {}) {
   const dropped = [];
+  let droppedChars = 0;
   const out = [];
   for (const t of tools || []) {
+    // Strip dos conectores ChatGPT (codex_apps): namespaces enormes e com $ref
+    // recursivo. Obrigatorio nos upstreams strict; opcional (economia de cota) nos demais.
+    if (opts.stripCodexApps && t?.type === "namespace" && String(t?.name || "").startsWith("mcp__codex_apps__")) {
+      dropped.push(`${t.name}:apps-strip`);
+      droppedChars += JSON.stringify(t).length;
+      continue;
+    }
     if (t?.type === "custom") {
       const fn = customToFunction(t);
       if (fn) out.push(fn);
@@ -83,7 +91,7 @@ function sanitizeTools(tools, model) {
     }
     out.push(t);
   }
-  return { tools: out, dropped };
+  return { tools: out, dropped, droppedChars };
 }
 
 // Endpoint nativo de cada modelo na doc do Go (responses | chat | messages).
@@ -95,7 +103,9 @@ export function nativeEndpoint(model) {
 
 export function sanitizeResponsesBody(body, model, policy) {
   const out = { ...body, model };
-  const { tools, dropped } = sanitizeTools(body.tools, model);
+  const { tools, dropped, droppedChars } = sanitizeTools(body.tools, model, {
+    stripCodexApps: policy.stripCodexApps,
+  });
   out.tools = tools;
   if (typeof out.max_output_tokens === "number" && policy.maxOutputTokens) {
     out.max_output_tokens = Math.min(out.max_output_tokens, policy.maxOutputTokens);
@@ -112,7 +122,7 @@ export function sanitizeResponsesBody(body, model, policy) {
     }
     out.reasoning = { ...out.reasoning, effort };
   }
-  return { body: out, dropped };
+  return { body: out, dropped, droppedChars };
 }
 
 export function modelPolicy(model, config) {
@@ -121,5 +131,8 @@ export function modelPolicy(model, config) {
     enabled: per.enabled !== false,
     maxOutputTokens: per.maxOutputTokens ?? config.defaults?.maxOutputTokens ?? 8192,
     maxReasoningEffort: per.maxReasoningEffort ?? config.defaults?.maxReasoningEffort ?? "high",
+    // Remove namespaces mcp__codex_apps__* (Gmail/GitHub/Drive...). Default: true
+    // nos upstreams strict (Muse: fatal), false nos demais (funcionam, mas gastam input).
+    stripCodexApps: per.stripCodexApps ?? isStrictUpstream(model),
   };
 }

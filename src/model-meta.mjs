@@ -48,7 +48,13 @@ export function displayName(id) {
   return NAMES[id] || id;
 }
 
-// Variantes nativas conhecidas (effort real aceito pelo upstream).
+// Upstreams que NAO toleram `custom` tools nem schemas recursivos.
+// Neles o proxy aplica sanitizacao total (inclui strip dos apps).
+const STRICT_RES = [/^muse-spark-.+/];
+
+export function isStrictUpstream(id) {
+  return STRICT_RES.some((re) => re.test(id));
+}
 const DEEPSEEK = ["deepseek-v4.1-flash", "deepseek-v4-pro", "deepseek-v4-flash", "deepseek-flash", "deepseek-v4-flash-vision-exp"];
 const KIMI_K3 = ["kimi-k3"];
 const GLM = ["glm-5.3-flash", "glm-5.3", "glm-5.2", "glm-5.1", "glm-5"];

@@ -165,11 +165,13 @@ export const server = http.createServer(async (req, res) => {
       }
       let upPath = "/chat/completions";
       let dropped = [];
+      let droppedChars = 0;
       if (p === "/responses") {
         upPath = "/responses";
         const s = sanitizeResponsesBody(body, model, policy);
         body = s.body;
         dropped = s.dropped;
+        droppedChars = s.droppedChars || 0;
       } else if (p === "/messages") {
         upPath = "/messages";
       } else if (typeof body.max_tokens === "number" && policy.maxOutputTokens) {
@@ -198,8 +200,12 @@ export const server = http.createServer(async (req, res) => {
         output_tokens: output,
         usd_estimate: usd,
         sanitized_dropped: dropped,
+        approx_input_tokens_saved: Math.round(droppedChars / 4),
       });
-      if (dropped.length) console.log(`[${model}] sanitizado: ${dropped.join("; ")}`);
+      if (dropped.length)
+        console.log(
+          `[${model}] sanitizado (${Math.round(droppedChars / 4)} tokens poupados): ${dropped.join("; ")}`
+        );
       res.writeHead(up.status, { "content-type": up.headers.get("content-type") || "application/json" });
       res.end(buf);
       pool.advance();

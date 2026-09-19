@@ -7,7 +7,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const { displayName, reasoningFor } = await import("./model-meta.mjs");
+const { displayName, reasoningFor, isStrictUpstream } = await import("./model-meta.mjs");
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "config.json"), "utf8"));
 const UPSTREAM = (cfg.upstream || "https://opencode.ai/zen/go/v1").replace(/\/$/, "");
 const KEY = cfg.keys?.find((k) => k.key && !k.key.includes("COLE"))?.key || process.env.OPENCODE_API_KEY;
@@ -15,12 +15,8 @@ const KEY = cfg.keys?.find((k) => k.key && !k.key.includes("COLE"))?.key || proc
 const BASE_INSTRUCTIONS =
   "You are Codex, a coding agent working in the user's local workspace. Follow developer and user instructions, use the available tools when needed, and keep answers accurate and concise.";
 
-// Modelos cujo upstream NAO tolera custom tools / schemas recursivos:
-// o PROXY sanitiza, mas o catalogo fica conservador (sem freeform).
-const STRICT_UPSTREAMS = [/^muse-spark-.+/];
-
 function entryFor(id) {
-  const strict = STRICT_UPSTREAMS.some((re) => re.test(id));
+  const strict = isStrictUpstream(id);
   const rz = reasoningFor(id);
   const e = {
     slug: id,

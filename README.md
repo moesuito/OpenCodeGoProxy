@@ -38,6 +38,7 @@ npm run proxy
 | `models.<id>.enabled=false` | bloqueia modelo caro (ex: `kimi-k3`, `qwen3.8-max`) |
 | `models.<id>.maxOutputTokens` | teto de tokens de saída por request |
 | `models.<id>.maxReasoningEffort` | teto de reasoning (`medium` economiza muito vs `max`) |
+| `models.<id>.stripCodexApps` | remove namespaces `mcp__codex_apps__*` (Gmail/GitHub/Drive). Default true no Muse (fatal), false nos demais. Medido: ~84k input tokens poupados por turno no Muse |
 | `defaults.*` | padrão para modelos não listados |
 
 Modelos baratos e bons p/ dia a dia: `deepseek-v4.1-flash`, `muse-spark-1.3-contributor`, `glm-5.3-flash`, `mimo-v2.5`.
