@@ -46,7 +46,7 @@ export const api = {
     return { ...cxOn({ model: "deepseek-v4.1-flash", catalogPath: dest, port: cfg.port || 11447 }), toggled: "proxy" };
   },
 
-  claudeState: async () => getClaudeState(),
+  claudeState: async () => getClaudeState(undefined, proxyConfig().port || 11447),
 
   claudeToggle: async () => {
     const st = getClaudeState();

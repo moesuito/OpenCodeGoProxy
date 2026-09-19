@@ -16,12 +16,13 @@ function readJson(p) {
   return JSON.parse(fs.readFileSync(p, "utf8"));
 }
 
-export function getClaudeState(dir) {
+export function getClaudeState(dir, port) {
   const p = settingsPath(dir);
   if (!fs.existsSync(p)) return { active: "unknown", reason: "settings.json ausente", hasBackup: false };
   const s = readJson(p);
   const base = s?.env?.ANTHROPIC_BASE_URL || "";
-  const active = /127\.0\.0\.1:11447|localhost:11447/.test(base) ? "proxy" : "normal";
+  const pt = port || 11447;
+  const active = base.includes(`127.0.0.1:${pt}`) || base.includes(`localhost:${pt}`) ? "proxy" : "normal";
   return { active, baseUrl: base, model: s?.env?.ANTHROPIC_MODEL, hasBackup: fs.existsSync(prevPath(dir)) };
 }
 
@@ -72,7 +73,7 @@ export function activateProxy({ dir, port, tiers } = {}) {
   const d = dir || claudeDir();
   const p = settingsPath(d);
   if (!fs.existsSync(p)) throw new Error("settings.json do Claude nao encontrado");
-  const st = getClaudeState(d);
+  const st = getClaudeState(d, port);
   if (st.active === "proxy") return { already: true, ...st };
   backup(p, d);
   fs.copyFileSync(p, prevPath(d));

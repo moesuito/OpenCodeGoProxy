@@ -26,11 +26,20 @@ O proxy encaminha **todos** os headers (o Go exige identificadores de sessão �
 Pré-requisito: Node 18+.
 
 ```powershell
-cd C:\Antigravity\OpenCodeGoProxy
+cd <pasta-do-repo>
 Copy-Item config.example.json config.json
 notepad config.json   # coloque sua(s) sk-... do OpenCode Go
 npm run proxy
 ```
+
+## Guia rápido p/ um amigo (fresh install)
+
+1. Instale pelo `OpenCodeGoProxy Setup X.exe` (Desktop + Menu Iniciar).
+2. Abra pelo tray → cole a key OpenCode Go (`nome|sk-...|orcamento`) → Salvar.
+3. Tray → **Reiniciar app+proxy**.
+4. Aba **Profiles**: ligue Codex e/ou Claude Code (backup automático, reversível).
+5. `setx OPENCODE_GO_PROXY_KEY "local"` (Codex precisa dessa env com qualquer valor).
+6. Pronto: `codex` e `claude` usam o proxy; voltar ao normal é um clique.
 
 ## Configuração (`config.json`)
 

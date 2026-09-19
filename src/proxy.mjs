@@ -385,6 +385,23 @@ export const server = http.createServer(async (req, res) => {
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`OpenCodeGoProxy ouvindo em http://127.0.0.1:${PORT}`);
   console.log(`Upstream: ${UPSTREAM} | keys: ${pool.keys.map((k) => k.name).join(", ")}`);
+  // Rotacao simples do log de uso (>10MB vira backup com data).
+  try {
+    const st = fs.statSync(USAGE_LOG);
+    if (st.size > 10 * 1024 * 1024) {
+      const stamp = new Date().toISOString().slice(0, 10);
+      fs.renameSync(USAGE_LOG, USAGE_LOG.replace(/\.jsonl$/, `-${stamp}.jsonl`));
+      console.log("usage.jsonl rotacionado por tamanho");
+    }
+  } catch { /* sem log ainda: segue */ }
+});
+
+server.on("error", (err) => {
+  if (err?.code === "EADDRINUSE") {
+    console.error(`Porta ${PORT} ocupada — outra instancia rodando? O proxy NAO iniciou.`);
+  } else {
+    console.error("Erro no servidor:", err?.message || err);
+  }
 });
 
 export function stopProxy() {
