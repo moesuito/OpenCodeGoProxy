@@ -14,6 +14,7 @@ import {
   loadSettings, saveSettings, isAutoStart, setAutoStart,
 } from "./app-settings.mjs";
 import { resolveConfigPath } from "./config-path.mjs";
+import { NAMES, UNAVAILABLE } from "./model-meta.mjs";
 
 function proxyConfig() {
   try {
@@ -52,6 +53,39 @@ export const api = {
     if (st.active === "proxy") return { ...clOff(), toggled: "normal" };
     const cfg = proxyConfig();
     return { ...clOn({ port: cfg.port || 11447 }), toggled: "proxy" };
+  },
+
+  claudeModels: async () =>
+    Object.entries(NAMES)
+      .filter(([id]) => !UNAVAILABLE.includes(id))
+      .map(([id, name]) => ({ id, name })),
+
+  claudeTiers: async () => {
+    const p = path.join(claudeDir(), "settings.json");
+    const s = JSON.parse(fs.readFileSync(p, "utf8"));
+    return {
+      opus: s.env?.ANTHROPIC_DEFAULT_OPUS_MODEL || "",
+      sonnet: s.env?.ANTHROPIC_MODEL || s.env?.ANTHROPIC_DEFAULT_SONNET_MODEL || "",
+      haiku: s.env?.ANTHROPIC_DEFAULT_HAIKU_MODEL || "",
+    };
+  },
+
+  claudeTiersSet: async ({ opus, sonnet, haiku } = {}) => {
+    const p = path.join(claudeDir(), "settings.json");
+    try {
+      const bak = p + ".bak-" + new Date().toISOString().replace(/[-:T]/g, "").slice(0, 13);
+      fs.copyFileSync(p, bak);
+    } catch { /* segue */ }
+    const s = JSON.parse(fs.readFileSync(p, "utf8"));
+    s.env = s.env || {};
+    if (opus) s.env.ANTHROPIC_DEFAULT_OPUS_MODEL = opus;
+    if (sonnet) {
+      s.env.ANTHROPIC_MODEL = sonnet;
+      s.env.ANTHROPIC_DEFAULT_SONNET_MODEL = sonnet;
+    }
+    if (haiku) s.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = haiku;
+    fs.writeFileSync(p, JSON.stringify(s, null, 2));
+    return { ok: true };
   },
 
   sysGet: async () => ({ settings: loadSettings(), autoStartReal: await isAutoStart() }),

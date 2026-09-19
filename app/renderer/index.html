@@ -31,6 +31,7 @@
   button.act { padding: 9px 18px; border-radius: 8px; border: 0; background: #fff; color: #000; cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 10px; }
   button.ghost { background: #1a1a1a; color: #ddd; }
   textarea { width: 100%; background: #0d0d0d; color: #eee; border: 1px solid #262626; border-radius: 8px; padding: 9px; font-size: 12px; height: 64px; font-family: Consolas, monospace; }
+  select { width: 100%; background: #0d0d0d; color: #eee; border: 1px solid #262626; border-radius: 6px; padding: 7px 4px; font-size: 11px; }
   label.ck { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 13px; cursor: pointer; }
   input[type="checkbox"] { width: 16px; height: 16px; accent-color: #fff; }
   #msg { font-size: 12px; color: #ffd479; min-height: 16px; margin-top: 8px; }
@@ -55,6 +56,16 @@
     <div class="row">
       <div><div class="t">Claude Code</div><div class="s" id="clInfo">…</div></div>
       <label class="switch"><input type="checkbox" id="clToggle" /><span class="track"></span></label>
+    </div>
+    <div class="row" id="tiersRow" style="display:none">
+      <div style="width:100%">
+        <div class="s" style="margin-bottom:6px">Modelos por tier (valem nos dois profiles)</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1"><div class="s">Opus</div><select id="tierOpus" style="width:100%"></select></div>
+          <div style="flex:1"><div class="s">Sonnet</div><select id="tierSonnet" style="width:100%"></select></div>
+          <div style="flex:1"><div class="s">Haiku</div><select id="tierHaiku" style="width:100%"></select></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -110,10 +121,41 @@ async function refreshProfiles() {
     const on = st.active === "proxy";
     paintToggle($("clToggle"), on);
     $("clInfo").textContent = `${st.model || "?"} · ${(st.baseUrl || "?").replace("http://", "")}`;
+    await refreshTiers();
   } catch (e) {
     $("clToggle").disabled = true;
     $("clInfo").textContent = String((e && e.message) || e).slice(0, 100);
   }
+}
+
+async function refreshTiers() {
+  try {
+    const [models, tiers] = await Promise.all([call("claudeModels"), call("claudeTiers")]);
+    for (const [sel, val] of [["tierOpus", tiers.opus], ["tierSonnet", tiers.sonnet], ["tierHaiku", tiers.haiku]]) {
+      const el = $(sel);
+      el.innerHTML = "";
+      for (const m of models) {
+        const o = document.createElement("option");
+        o.value = m.id;
+        o.textContent = m.name;
+        if (m.id === val) o.selected = true;
+        el.appendChild(o);
+      }
+    }
+    $("tiersRow").style.display = "";
+  } catch (e) { /* sem tiers */ }
+}
+
+for (const sel of ["tierOpus", "tierSonnet", "tierHaiku"]) {
+  $(sel).onchange = async () => {
+    try {
+      await call("claudeTiersSet", {
+        opus: $("tierOpus").value, sonnet: $("tierSonnet").value, haiku: $("tierHaiku").value,
+      });
+      msg("Modelos Claude salvos. Vale em novas sessões.");
+      refreshProfiles();
+    } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
+  };
 }
 
 async function refreshSystem() {

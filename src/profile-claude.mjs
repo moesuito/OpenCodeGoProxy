@@ -59,9 +59,16 @@ export function preApproveKey(home, key) {
   }
 }
 
+// Modelos padrao por tier (sobrescreviveis pelo painel).
+export const DEFAULT_TIERS = {
+  opus: "kimi-k3",
+  sonnet: "deepseek-v4.1-flash",
+  haiku: "deepseek-v4-flash",
+};
+
 // Ativa o proxy (endpoint+key). Modelos do usuario sao preservados.
 // Tambem pre-aprova a key dummy no .claude.json p/ nao perguntar no startup.
-export function activateProxy({ dir, port } = {}) {
+export function activateProxy({ dir, port, tiers } = {}) {
   const d = dir || claudeDir();
   const p = settingsPath(d);
   if (!fs.existsSync(p)) throw new Error("settings.json do Claude nao encontrado");
@@ -73,6 +80,21 @@ export function activateProxy({ dir, port } = {}) {
   s.env = s.env || {};
   s.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port || 11447}`;
   s.env.ANTHROPIC_API_KEY = "local";
+  // Precedencia: tiers explicitos > valores atuais do usuario > defaults.
+  const cur = {
+    opus: s.env.ANTHROPIC_DEFAULT_OPUS_MODEL,
+    sonnet: s.env.ANTHROPIC_MODEL || s.env.ANTHROPIC_DEFAULT_SONNET_MODEL,
+    haiku: s.env.ANTHROPIC_DEFAULT_HAIKU_MODEL,
+  };
+  const t = { ...DEFAULT_TIERS };
+  for (const k of ["opus", "sonnet", "haiku"]) {
+    if (tiers?.[k]) t[k] = tiers[k];
+    else if (cur[k]) t[k] = cur[k];
+  }
+  s.env.ANTHROPIC_MODEL = t.sonnet;
+  s.env.ANTHROPIC_DEFAULT_OPUS_MODEL = t.opus;
+  s.env.ANTHROPIC_DEFAULT_SONNET_MODEL = t.sonnet;
+  s.env.ANTHROPIC_DEFAULT_HAIKU_MODEL = t.haiku;
   fs.writeFileSync(p, JSON.stringify(s, null, 2));
   const home = path.dirname(d) === os.homedir() ? os.homedir() : path.dirname(d);
   preApproveKey(home, "local");
