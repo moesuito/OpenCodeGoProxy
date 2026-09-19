@@ -33,7 +33,34 @@ export function backup(p, dir) {
   return b;
 }
 
+// Fingerprint que o Claude Code usa p/ lembrar a escolha (ultimos 20 chars).
+// Ex: "local" -> "local". Evita o prompt "Do you want to use this API key?".
+function keyFingerprint(key) {
+  const k = String(key || "");
+  return k.slice(-20);
+}
+
+export function preApproveKey(home, key) {
+  try {
+    const p = path.join(home || os.homedir(), ".claude.json");
+    if (!fs.existsSync(p)) return false;
+    backup(p, home);
+    const d = JSON.parse(fs.readFileSync(p, "utf8"));
+    d.customApiKeyResponses = d.customApiKeyResponses || { approved: [], rejected: [] };
+    d.customApiKeyResponses.approved = d.customApiKeyResponses.approved || [];
+    const fp = keyFingerprint(key);
+    if (!d.customApiKeyResponses.approved.includes(fp)) {
+      d.customApiKeyResponses.approved.push(fp);
+      fs.writeFileSync(p, JSON.stringify(d, null, 2));
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Ativa o proxy (endpoint+key). Modelos do usuario sao preservados.
+// Tambem pre-aprova a key dummy no .claude.json p/ nao perguntar no startup.
 export function activateProxy({ dir, port } = {}) {
   const d = dir || claudeDir();
   const p = settingsPath(d);
@@ -47,6 +74,8 @@ export function activateProxy({ dir, port } = {}) {
   s.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port || 11447}`;
   s.env.ANTHROPIC_API_KEY = "local";
   fs.writeFileSync(p, JSON.stringify(s, null, 2));
+  const home = path.dirname(d) === os.homedir() ? os.homedir() : path.dirname(d);
+  preApproveKey(home, "local");
   return { active: "proxy", hasBackup: true };
 }
 
