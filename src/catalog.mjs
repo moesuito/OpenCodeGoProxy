@@ -7,6 +7,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const { displayName, reasoningFor } = await import("./model-meta.mjs");
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "config.json"), "utf8"));
 const UPSTREAM = (cfg.upstream || "https://opencode.ai/zen/go/v1").replace(/\/$/, "");
 const KEY = cfg.keys?.find((k) => k.key && !k.key.includes("COLE"))?.key || process.env.OPENCODE_API_KEY;
@@ -20,18 +21,14 @@ const STRICT_UPSTREAMS = [/^muse-spark-.+/];
 
 function entryFor(id) {
   const strict = STRICT_UPSTREAMS.some((re) => re.test(id));
+  const rz = reasoningFor(id);
   const e = {
     slug: id,
-    display_name: `${id} (OpenCodeGoProxy)`,
-    description: `Modelo ${id} via proxy local OpenCodeGoProxy.`,
+    display_name: displayName(id),
+    description: `${displayName(id)} via OpenCode Go.`,
     base_instructions: BASE_INSTRUCTIONS,
-    default_reasoning_level: "medium",
-    supported_reasoning_levels: [
-      { effort: "none", description: "Sem raciocinio extra (direto)" },
-      { effort: "low", description: "Fast responses with lighter reasoning" },
-      { effort: "medium", description: "Balances speed and reasoning depth for everyday tasks" },
-      { effort: "high", description: "Greater reasoning depth for complex problems" },
-    ],
+    default_reasoning_level: rz.def,
+    supported_reasoning_levels: rz.levels,
     shell_type: "shell_command",
     visibility: "list",
     supported_in_api: true,

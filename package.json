@@ -1,6 +1,6 @@
 {
   "name": "opencode-go-proxy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Proxy local para usar todos os modelos do OpenCode Go no Codex (CLI/App) e Claude Code, com multi-key, sanitizacao por modelo e travas de cota.",
   "type": "module",
   "main": "app/electron-main.mjs",

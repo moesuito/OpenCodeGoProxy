@@ -6,6 +6,8 @@
 
 const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh", "max"];
 
+import { reasoningFor } from "./model-meta.mjs";
+
 function hasInternalRef(obj) {
   return JSON.stringify(obj).includes('"$ref"');
 }
@@ -98,10 +100,17 @@ export function sanitizeResponsesBody(body, model, policy) {
   if (typeof out.max_output_tokens === "number" && policy.maxOutputTokens) {
     out.max_output_tokens = Math.min(out.max_output_tokens, policy.maxOutputTokens);
   }
-  if (out.reasoning && policy.maxReasoningEffort) {
-    const cur = EFFORT_ORDER.indexOf(out.reasoning.effort);
-    const cap = EFFORT_ORDER.indexOf(policy.maxReasoningEffort);
-    if (cur > cap) out.reasoning = { ...out.reasoning, effort: policy.maxReasoningEffort };
+  if (out.reasoning) {
+    // Traduz o slot do Codex p/ o effort nativo do modelo (ex: low -> none no DeepSeek).
+    const map = reasoningFor(model).map;
+    let effort = out.reasoning.effort;
+    if (map[effort]) effort = map[effort];
+    if (policy.maxReasoningEffort) {
+      const cur = EFFORT_ORDER.indexOf(effort);
+      const cap = EFFORT_ORDER.indexOf(policy.maxReasoningEffort);
+      if (cur > cap) effort = policy.maxReasoningEffort;
+    }
+    out.reasoning = { ...out.reasoning, effort };
   }
   return { body: out, dropped };
 }
