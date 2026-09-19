@@ -1,0 +1,7 @@
+node_modules/
+config.json
+data/*.jsonl
+data/ledger.json
+dist/
+*.log
+.DS_Store

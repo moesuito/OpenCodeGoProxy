@@ -1,0 +1,46 @@
+{
+  "name": "opencode-go-proxy",
+  "version": "0.1.0",
+  "description": "Proxy local para usar todos os modelos do OpenCode Go no Codex (CLI/App) e Claude Code, com multi-key, sanitizacao por modelo e travas de cota.",
+  "type": "module",
+  "main": "app/electron-main.mjs",
+  "scripts": {
+    "proxy": "node src/proxy.mjs",
+    "setup:codex": "node src/setup-codex.mjs",
+    "setup:claude": "node src/setup-claude.mjs",
+    "models": "node src/catalog.mjs --print",
+    "models:sync": "node src/sync-models-json.mjs",
+    "app": "electron app/electron-main.mjs",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "author": "Joao Alano (moesuito)",
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.alano.opencodegoproxy",
+    "productName": "OpenCodeGoProxy",
+    "files": [
+      "src/**/*",
+      "app/**/*",
+      "config.example.json",
+      "package.json",
+      "README.md"
+    ],
+    "win": {
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "OpenCodeGoProxy"
+    }
+  }
+}

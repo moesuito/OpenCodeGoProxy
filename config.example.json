@@ -1,0 +1,18 @@
+{
+  "port": 11447,
+  "upstream": "https://opencode.ai/zen/go/v1",
+  "defaults": {
+    "maxOutputTokens": 8192,
+    "maxReasoningEffort": "high"
+  },
+  "keys": [
+    { "name": "principal", "key": "sk-COLE-SUA-KEY-AQUI", "dayBudgetUsd": 2.0 }
+  ],
+  "models": {
+    "muse-spark-1.3-contributor": {},
+    "muse-spark-1.2-contributor": {},
+    "deepseek-v4.1-flash": {},
+    "kimi-k3": { "maxReasoningEffort": "medium" },
+    "qwen3.8-max": { "enabled": true, "maxOutputTokens": 4096 }
+  }
+}

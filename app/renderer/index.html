@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>OpenCodeGoProxy</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: "Segoe UI", sans-serif; margin: 0; background: #14161a; color: #e8e8e8; }
+  header { display: flex; align-items: center; gap: 10px; padding: 14px 20px; background: #1b1e24; position: sticky; top: 0; }
+  header h2 { margin: 0; font-size: 17px; }
+  #status { font-size: 12px; padding: 3px 10px; border-radius: 20px; background: #333; }
+  #status.on { background: #1d5c34; color: #b9f5cf; }
+  #status.off { background: #6e2a2a; color: #ffd4d4; }
+  main { padding: 16px 20px 30px; }
+  section { background: #1b1e24; border: 1px solid #2a2e36; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  section h3 { margin: 0 0 8px; font-size: 14px; color: #9fb4ff; }
+  label { display: block; margin: 8px 0 4px; font-size: 12px; color: #aaa; }
+  input, textarea { width: 100%; box-sizing: border-box; background: #101319; color: #eee; border: 1px solid #333; border-radius: 6px; padding: 8px; }
+  textarea { height: 76px; font-family: Consolas, monospace; font-size: 12px; }
+  button { margin-top: 10px; padding: 9px 16px; border: 0; border-radius: 6px; background: #4f7cff; color: #fff; cursor: pointer; font-size: 13px; }
+  button.ghost { background: #2a2f37; }
+  button:disabled { opacity: .5; cursor: default; }
+  #msg { font-size: 13px; min-height: 18px; margin-top: 8px; color: #ffd479; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #262b33; }
+  th { color: #8b93a3; font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.off td { opacity: .45; }
+  .hint { font-size: 11px; color: #777; margin-top: 6px; }
+  pre { font-size: 12px; white-space: pre-wrap; background: #101319; padding: 10px; border-radius: 6px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<header>
+  <h2>OpenCodeGoProxy</h2>
+  <span id="status" class="off">proxy: verificando…</span>
+</header>
+<main>
+  <div id="msg"></div>
+
+  <section>
+    <h3>Servidor</h3>
+    <label>Porta local</label>
+    <input id="port" type="number" />
+    <div class="hint">Codex e Claude Code apontam para http://127.0.0.1:PORTA</div>
+  </section>
+
+  <section>
+    <h3>API keys do OpenCode Go</h3>
+    <label>Uma por linha: nome|sk-...|orcamento_diario_usd (a key salva some da tela por seguranca)</label>
+    <textarea id="keys" placeholder="principal|sk-...|2.0&#10;reserva|sk-...|1.0"></textarea>
+    <div id="savedKeys" class="hint"></div>
+  </section>
+
+  <section>
+    <h3>Modelos e travas de cota</h3>
+    <div class="hint">Desmarcar = bloqueado no proxy (403). Preços de pico por 1M tokens + limite mensal do plano Go.</div>
+    <table>
+      <thead><tr><th></th><th>Modelo</th><th style="text-align:right">In/1M</th><th style="text-align:right">Out/1M</th><th style="text-align:right">Teto/mês</th></tr></thead>
+      <tbody id="models"></tbody>
+    </table>
+  </section>
+
+  <div class="row">
+    <button id="save">Salvar (depois: tray → Reiniciar app+proxy)</button>
+    <button id="stats" class="ghost">Atualizar gasto</button>
+  </div>
+  <pre id="out">Gasto estimado (ledger local — o console opencode.ai/auth é a verdade).</pre>
+</main>
+<script>
+const fs = require("node:fs");
+const path = require("node:path");
+const CFG = path.join(__dirname, "..", "..", "config.json");
+const MODELS = JSON.parse(fs.readFileSync(path.join(__dirname, "models.json"), "utf8"));
+const $ = (id) => document.getElementById(id);
+const msg = (t) => ($("msg").textContent = t);
+const mask = (k) => (k && k.length > 8 ? k.slice(0, 6) + "…" + k.slice(-4) : "***");
+
+let cfg = null;
+
+function renderModels() {
+  const tb = $("models");
+  tb.innerHTML = "";
+  for (const m of MODELS) {
+    const st = (cfg.models && cfg.models[m.id]) || {};
+    const tr = document.createElement("tr");
+    if (st.enabled === false) tr.className = "off";
+    tr.innerHTML =
+      `<td><input type="checkbox" data-m="${m.id}" ${st.enabled === false ? "" : "checked"} /></td>` +
+      `<td>${m.id}</td><td class="num">$${m.inputUsdPer1M.toFixed(3)}</td>` +
+      `<td class="num">$${m.outputUsdPer1M.toFixed(3)}</td><td class="num">$${m.monthlyUsd}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+function load() {
+  try {
+    cfg = JSON.parse(fs.readFileSync(CFG, "utf8"));
+  } catch (e) { msg("config.json nao encontrado — copie config.example.json"); return; }
+  $("port").value = cfg.port || 11447;
+  $("savedKeys").textContent = "Salvas: " + ((cfg.keys || []).map((k) => `${k.name} (${mask(k.key)})${k.dayBudgetUsd ? ` — $${k.dayBudgetUsd}/dia` : ""}`).join(" · ") || "nenhuma");
+  $("keys").value = "";
+  renderModels();
+  refreshStatus();
+}
+
+async function refreshStatus() {
+  const port = $("port").value || 11447;
+  const el = $("status");
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/health`);
+    const j = await r.json();
+    el.textContent = `proxy: ON (${(j.keys || []).length} key(s))`;
+    el.className = "on";
+  } catch (e) {
+    el.textContent = "proxy: OFF";
+    el.className = "off";
+  }
+}
+
+$("save").onclick = () => {
+  try {
+    cfg.port = parseInt($("port").value, 10) || 11447;
+    const lines = $("keys").value.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length) {
+      cfg.keys = lines.map((l) => {
+        const [name, key, day] = l.split("|");
+        return { name: (name || "").trim(), key: (key || "").trim(), dayBudgetUsd: day ? parseFloat(day) : undefined };
+      });
+    }
+    cfg.models = cfg.models || {};
+    document.querySelectorAll("#models input[type=checkbox]").forEach((cb) => {
+      const id = cb.dataset.m;
+      cfg.models[id] = cfg.models[id] || {};
+      if (cb.checked) delete cfg.models[id].enabled;
+      else cfg.models[id].enabled = false;
+    });
+    fs.writeFileSync(CFG, JSON.stringify(cfg, null, 2));
+    load();
+    msg("Salvo. Reinicie pelo tray: Reiniciar app+proxy.");
+  } catch (e) { msg("Erro: " + e.message); }
+};
+
+$("stats").onclick = async () => {
+  const port = $("port").value || 11447;
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/stats`);
+    $("out").textContent = JSON.stringify(await r.json(), null, 2);
+  } catch (e) { $("out").textContent = "Proxy fora do ar? " + e.message; }
+};
+
+load();
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>
