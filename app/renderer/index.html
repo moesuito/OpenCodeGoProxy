@@ -18,13 +18,12 @@
   .row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #1c1c1c; }
   .row:last-child { border-bottom: 0; }
   .row .t { font-size: 14px; }
-  .row .s { font-size: 11px; color: #777; margin-top: 2px; }
+  .row .s { font-size: 11px; color: #777; margin-top: 2px; max-width: 340px; }
   button.sw { min-width: 92px; padding: 7px 0; border-radius: 20px; border: 1px solid #333; background: #111; color: #aaa; cursor: pointer; font-size: 12px; }
   button.sw.on { background: #0f3d26; border-color: #35d07f; color: #b9f5cf; }
   button.act { padding: 9px 18px; border-radius: 8px; border: 0; background: #fff; color: #000; cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 10px; }
   button.ghost { background: #1a1a1a; color: #ddd; }
-  textarea, input { width: 100%; background: #0d0d0d; color: #eee; border: 1px solid #262626; border-radius: 8px; padding: 9px; font-size: 12px; }
-  textarea { height: 64px; font-family: Consolas, monospace; }
+  textarea { width: 100%; background: #0d0d0d; color: #eee; border: 1px solid #262626; border-radius: 8px; padding: 9px; font-size: 12px; height: 64px; font-family: Consolas, monospace; }
   label.ck { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 13px; cursor: pointer; }
   input[type="checkbox"] { width: 16px; height: 16px; accent-color: #fff; }
   #msg { font-size: 12px; color: #ffd479; min-height: 16px; margin-top: 8px; }
@@ -67,24 +66,13 @@
   </section>
 </main>
 <script>
-const fs = require("node:fs");
+const { ipcRenderer } = require("electron");
 const path = require("node:path");
-const os = require("node:os");
-const { pathToFileURL } = require("node:url");
-const SRC = path.join(__dirname, "..", "..", "src");
 const $ = (id) => document.getElementById(id);
 const msg = (t) => ($("msg").textContent = t || "");
-async function mod(name) {
-  return import(pathToFileURL(path.join(SRC, name)).href);
-}
-function cfgPath() {
-  const repo = path.join(__dirname, "..", "..", "config.json");
-  if (fs.existsSync(repo)) return repo;
-  return path.join(os.homedir(), "AppData", "Roaming", "OpenCodeGoProxy", "config.json");
-}
-let CFG = cfgPath();
-let cfg = null;
-try { document.getElementById("logo").src = path.join(__dirname, "..", "..", "assets", "tray.png"); } catch (e) {}
+const call = (name, args) => ipcRenderer.invoke("oc:call", name, args || {});
+try { $("logo").src = path.join(__dirname, "..", "..", "assets", "tray.png"); } catch (e) {}
+let PORT = 11447;
 
 function paintToggle(btn, active) {
   btn.textContent = active ? "Proxy" : "Normal";
@@ -93,8 +81,7 @@ function paintToggle(btn, active) {
 
 async function refreshStatus() {
   try {
-    const port = (cfg && cfg.port) || 11447;
-    const r = await fetch(`http://127.0.0.1:${port}/health`);
+    const r = await fetch(`http://127.0.0.1:${PORT}/health`);
     const j = await r.json();
     $("dot").classList.add("on");
     $("dot").title = `proxy ON (${(j.keys || []).length} key(s))`;
@@ -103,44 +90,41 @@ async function refreshStatus() {
 
 async function refreshProfiles() {
   try {
-    const cx = await mod("profile-codex.mjs");
-    const st = cx.getCodexState();
+    const st = await call("codexState");
     const on = st.active === "proxy";
     paintToggle($("cxToggle"), on);
     $("cxInfo").textContent = `${st.model || "?"} · ${st.provider || "openai (padrão)"}`;
   } catch (e) {
     $("cxToggle").textContent = "erro";
-    $("cxInfo").textContent = String(e.message || e).slice(0, 80);
+    $("cxInfo").textContent = String((e && e.message) || e).slice(0, 100);
   }
   try {
-    const cl = await mod("profile-claude.mjs");
-    const st = cl.getClaudeState();
+    const st = await call("claudeState");
     const on = st.active === "proxy";
     paintToggle($("clToggle"), on);
-    $("clInfo").textContent = `${st.model || "?"} · ${st.baseUrl ? st.baseUrl.replace("http://", "") : "?"}`;
+    $("clInfo").textContent = `${st.model || "?"} · ${(st.baseUrl || "?").replace("http://", "")}`;
   } catch (e) {
     $("clToggle").textContent = "erro";
-    $("clInfo").textContent = String(e.message || e).slice(0, 80);
+    $("clInfo").textContent = String((e && e.message) || e).slice(0, 100);
   }
 }
 
 async function refreshSystem() {
   try {
-    const s = await mod("app-settings.mjs");
-    const c = s.loadSettings();
-    $("autoStart").checked = !!c.autoStart;
-    $("startMinimized").checked = c.startMinimized !== false;
-    $("autoStartState").textContent = await s.isAutoStart() ? "(ativo)" : "";
+    const { settings, autoStartReal } = await call("sysGet");
+    $("autoStart").checked = !!settings.autoStart;
+    $("startMinimized").checked = settings.startMinimized !== false;
+    $("autoStartState").textContent = autoStartReal ? "(ativo)" : "";
   } catch (e) { /* sem sistema */ }
 }
 
-function load() {
+async function load() {
   try {
-    cfg = JSON.parse(fs.readFileSync(CFG, "utf8"));
-  } catch (e) { msg("config.json não encontrado"); return; }
-  const masked = (k) => (k && k.length > 8 ? k.slice(0, 6) + "…" + k.slice(-4) : "***");
-  $("savedKeys").textContent = "Salvas: " + ((cfg.keys || []).map((k) => `${k.name} (${masked(k.key)})`).join(" · ") || "nenhuma");
-  $("keys").value = "";
+    const k = await call("keysGet");
+    PORT = k.port || 11447;
+    $("savedKeys").textContent = "Salvas: " + (k.keys.map((x) => `${x.name} (${x.masked})`).join(" · ") || "nenhuma");
+    $("keys").value = "";
+  } catch (e) { msg("Falha ao ler config: " + ((e && e.message) || e)); }
   refreshStatus();
   refreshProfiles();
   refreshSystem();
@@ -148,58 +132,35 @@ function load() {
 
 $("cxToggle").onclick = async () => {
   try {
-    const cx = await mod("profile-codex.mjs");
-    const st = cx.getCodexState();
-    if (st.active === "proxy") cx.restoreNormal();
-    else {
-      const cat = await mod("catalog.mjs");
-      const home = path.join(os.homedir(), ".codex");
-      const dest = path.join(home, "opencode-go-proxy-models.json");
-      const key = (cfg.keys || []).find((k) => k.key && !k.key.includes("COLE"))?.key;
-      await cat.generateCatalog(dest, key);
-      cx.activateProxy({ model: "deepseek-v4.1-flash", catalogPath: dest, port: cfg.port || 11447 });
-    }
+    await call("codexToggle");
     msg("Codex atualizado. Reabra CLI/App.");
     refreshProfiles();
-  } catch (e) { msg("Erro: " + e.message); }
+  } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
 };
 
 $("clToggle").onclick = async () => {
   try {
-    const cl = await mod("profile-claude.mjs");
-    const st = cl.getClaudeState();
-    if (st.active === "proxy") cl.restoreNormal();
-    else cl.activateProxy({ port: cfg.port || 11447 });
+    await call("claudeToggle");
     msg("Claude atualizado. Novas sessões usam o profile ativo.");
     refreshProfiles();
-  } catch (e) { msg("Erro: " + e.message); }
+  } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
 };
 
-$("saveKeys").onclick = () => {
+$("saveKeys").onclick = async () => {
   try {
-    const lines = $("keys").value.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (lines.length) {
-      cfg.keys = lines.map((l) => {
-        const [name, key, day] = l.split("|");
-        return { name: (name || "").trim(), key: (key || "").trim(), dayBudgetUsd: day ? parseFloat(day) : undefined };
-      });
-      fs.writeFileSync(CFG, JSON.stringify(cfg, null, 2));
-      load();
-      msg("Keys salvas. Reinicie pelo tray.");
-    } else msg("Cole ao menos uma key.");
-  } catch (e) { msg("Erro: " + e.message); }
+    const r = await call("keysSave", { text: $("keys").value });
+    $("keys").value = "";
+    load();
+    msg(`Keys salvas (${r.saved}). Reinicie pelo tray.`);
+  } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
 };
 
 $("saveSystem").onclick = async () => {
   try {
-    const s = await mod("app-settings.mjs");
-    const wantAuto = $("autoStart").checked;
-    const minimized = $("startMinimized").checked;
-    s.saveSettings({ autoStart: wantAuto, startMinimized: minimized });
-    await s.setAutoStart(wantAuto, process.execPath, minimized);
+    await call("sysSave", { autoStart: $("autoStart").checked, startMinimized: $("startMinimized").checked, exePath: process.execPath });
     msg("Sistema salvo.");
     refreshSystem();
-  } catch (e) { msg("Erro: " + e.message); }
+  } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
 };
 
 load();

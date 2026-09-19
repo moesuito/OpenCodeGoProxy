@@ -13,8 +13,13 @@ try {
   console.error("Electron nao instalado. Rode: npm i -D electron");
   process.exit(1);
 }
-const { app, Tray, Menu, BrowserWindow, Notification, nativeImage } = electron;
+const { app, Tray, Menu, BrowserWindow, Notification, nativeImage, ipcMain } = electron;
 Menu.setApplicationMenu(null);
+const { api } = await import("../src/gui-api.mjs");
+ipcMain.handle("oc:call", async (_event, name, args) => {
+  if (typeof api[name] !== "function") throw new Error(`api desconhecida: ${name}`);
+  return api[name](args);
+});
 const { loadSettings } = await import("../src/app-settings.mjs");
 
 if (!app.requestSingleInstanceLock()) {
