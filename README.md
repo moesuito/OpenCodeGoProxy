@@ -92,7 +92,11 @@ npm i -D electron
 npm run app
 ```
 
-Painel: **Profiles** (Normal↔Proxy p/ Codex e Claude), atalhos, porta, keys (`nome|sk-...|orcamento`), modelos bloqueados e leitura de gasto (`/stats`). O app minimiza para o tray.
+Painel: **Profiles** (Normal↔Proxy p/ Codex e Claude), **Sistema** (iniciar com o Windows, iniciar minimizado), atalhos, porta, keys (`nome|sk-...|orcamento`), modelos bloqueados e leitura de gasto (`/stats`). O app minimiza para o tray.
+
+Ícone: marca oficial do OpenCode (`assets/`, obtida no repositório público anomalyco/opencode).
+
+Ícone: marca oficial do OpenCode (`assets/`, obtida no repositório público anomalyco/opencode).
 
 ## Endpoints do proxy
 

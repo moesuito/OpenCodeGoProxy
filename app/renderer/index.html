@@ -57,6 +57,21 @@
   </section>
 
   <section>
+    <h3>Sistema</h3>
+    <table>
+      <tbody>
+        <tr>
+          <td><input type="checkbox" id="autoStart" /> <strong>Iniciar com o Windows</strong><br /><span class="hint">Registra no Run do usuário. <span id="autoStartState"></span></span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" id="startMinimized" /> <strong>Iniciar minimizado (tray)</strong><br /><span class="hint">Sem janela e sem notificação na abertura.</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="row"><button id="saveSystem" class="ghost">Salvar sistema</button></div>
+  </section>
+
+  <section>
     <h3>Atalhos (usam o profile ativo)</h3>
     <div class="row">
       <button id="openCodexCli" class="ghost">Abrir Codex CLI</button>
@@ -199,6 +214,30 @@ $("openCodexCli").onclick = () => launch("codex", "Codex (profile ativo)");
 $("openCodexApp").onclick = () => launch("codex app", "Codex App (profile ativo)");
 $("openClaudeCli").onclick = () => launch("claude", "Claude (profile ativo)");
 
+async function refreshSystem() {
+  try {
+    const s = await mod("app-settings.mjs");
+    const cfg = s.loadSettings();
+    $("autoStart").checked = !!cfg.autoStart;
+    $("startMinimized").checked = cfg.startMinimized !== false;
+    const real = await s.isAutoStart();
+    $("autoStartState").textContent = real ? "Ativo no Registro agora." : "Inativo no Registro agora.";
+  } catch (e) { $("autoStartState").textContent = "erro ao ler"; }
+}
+
+$("saveSystem").onclick = async () => {
+  try {
+    const s = await mod("app-settings.mjs");
+    const wantAuto = $("autoStart").checked;
+    const minimized = $("startMinimized").checked;
+    s.saveSettings({ autoStart: wantAuto, startMinimized: minimized });
+    const exe = process.execPath;
+    await s.setAutoStart(wantAuto, exe, minimized);
+    msg("Sistema salvo (autostart " + (wantAuto ? "ATIVADO" : "desativado") + ").");
+    refreshSystem();
+  } catch (e) { msg("Erro: " + e.message); }
+};
+
 async function refreshProfiles() {
   try {
     const cx = await mod("profile-codex.mjs");
@@ -247,6 +286,7 @@ $("clToggle").onclick = async () => {
 
 load();
 refreshProfiles();
+refreshSystem();
 setInterval(refreshStatus, 5000);
 </script>
 </body>

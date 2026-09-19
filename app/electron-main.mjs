@@ -1,6 +1,7 @@
-// Shell Electron (tray) — requer `npm i -D electron` (nao vem instalado).
+// Shell Electron (tray).
 // Roda o proxy em-processo (sem depender de Node externo no instalador)
-// e oferece painel minimo de configuracao.
+// e oferece painel de configuracao. Suporta --minimized (boot silencioso)
+// e trava de instancia unica (segundo clique abre o painel existente).
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +14,16 @@ try {
   process.exit(1);
 }
 const { app, Tray, Menu, BrowserWindow, Notification, nativeImage } = electron;
+const { loadSettings } = await import("../src/app-settings.mjs");
+
+if (!app.requestSingleInstanceLock()) {
+  console.log("Outra instancia ja esta rodando. Saindo.");
+  app.quit();
+  process.exit(0);
+}
+
+const MINIMIZED = process.argv.includes("--minimized");
+const settings = loadSettings();
 
 let proxyMod = null;
 let win = null;
@@ -40,9 +51,10 @@ function openPanel() {
     return;
   }
   win = new BrowserWindow({
-    width: 640,
-    height: 560,
+    width: 680,
+    height: 640,
     title: "OpenCodeGoProxy",
+    icon: path.join(ROOT, "assets", "tray.png"),
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   win.loadFile(path.join(ROOT, "app", "renderer", "index.html"));
@@ -52,9 +64,14 @@ function openPanel() {
   });
 }
 
+app.on("second-instance", () => {
+  openPanel();
+});
+
 app.whenReady().then(() => {
   startProxy();
-  tray = new Tray(nativeImage.createEmpty());
+  const trayIcon = nativeImage.createFromPath(path.join(ROOT, "assets", "tray.png"));
+  tray = new Tray(trayIcon.isEmpty() ? nativeImage.createEmpty() : trayIcon);
   tray.setToolTip("OpenCodeGoProxy");
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -71,8 +88,12 @@ app.whenReady().then(() => {
     ])
   );
   tray.on("click", openPanel);
-  if (Notification.isSupported()) {
-    new Notification({ title: "OpenCodeGoProxy", body: "Proxy no ar (tray)." }).show();
+  const silent = MINIMIZED || settings.startMinimized === true;
+  if (!silent) {
+    openPanel();
+    if (Notification.isSupported()) {
+      new Notification({ title: "OpenCodeGoProxy", body: "Proxy no ar (tray)." }).show();
+    }
   }
 });
 

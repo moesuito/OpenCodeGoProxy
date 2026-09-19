@@ -1,6 +1,6 @@
 {
   "name": "opencode-go-proxy",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Proxy local para usar todos os modelos do OpenCode Go no Codex (CLI/App) e Claude Code, com multi-key, sanitizacao por modelo e travas de cota.",
   "type": "module",
   "main": "app/electron-main.mjs",
@@ -28,12 +28,14 @@
     "files": [
       "src/**/*",
       "app/**/*",
+      "assets/**/*",
       "config.example.json",
       "package.json",
       "README.md"
     ],
     "win": {
-      "target": ["nsis"]
+      "target": ["nsis"],
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
