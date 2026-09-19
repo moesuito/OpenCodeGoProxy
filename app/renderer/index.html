@@ -132,16 +132,18 @@ async function load() {
 
 $("cxToggle").onclick = async () => {
   try {
-    await call("codexToggle");
-    msg("Codex atualizado. Reabra CLI/App.");
+    const r = await call("codexToggle");
+    if (r && r.restored === false) msg("Não voltou ao normal: " + (r.reason || "?"));
+    else msg("Codex atualizado. Reabra CLI/App.");
     refreshProfiles();
   } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
 };
 
 $("clToggle").onclick = async () => {
   try {
-    await call("claudeToggle");
-    msg("Claude atualizado. Novas sessões usam o profile ativo.");
+    const r = await call("claudeToggle");
+    if (r && r.restored === false) msg("Não voltou ao normal: " + (r.reason || "?"));
+    else msg("Claude atualizado. Novas sessões usam o profile ativo.");
     refreshProfiles();
   } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
 };

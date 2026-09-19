@@ -34,6 +34,11 @@ const settings = loadSettings();
 let proxyMod = null;
 let win = null;
 let tray = null;
+let isQuitting = false;
+
+app.on("before-quit", () => {
+  isQuitting = true;
+});
 
 async function startProxy() {
   if (proxyMod) return;
@@ -66,8 +71,10 @@ function openPanel() {
   });
   win.loadFile(path.join(ROOT, "app", "renderer", "index.html"));
   win.on("close", (e) => {
-    e.preventDefault();
-    win.hide();
+    if (!isQuitting) {
+      e.preventDefault();
+      win.hide();
+    }
   });
 }
 

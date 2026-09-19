@@ -9,6 +9,7 @@ export function codexHome() {
 }
 const cfgPath = (home) => path.join(home || codexHome(), "config.toml");
 const prevPath = (home) => path.join(home || codexHome(), "config.toml.pre-oc-gui");
+const legacyPrevPath = (home) => path.join(home || codexHome(), "config.toml.pre-oc-proxy");
 export const PROXY_PROVIDER = "opencode_go_proxy";
 
 function read(p) {
@@ -34,7 +35,7 @@ export function getCodexState(home) {
   const provider = topLevel(toml, "model_provider");
   const model = topLevel(toml, "model");
   const active = provider === PROXY_PROVIDER ? "proxy" : "normal";
-  return { active, provider, model, hasBackup: fs.existsSync(prevPath(home)) };
+  return { active, provider, model, hasBackup: fs.existsSync(prevPath(home)) || fs.existsSync(legacyPrevPath(home)) };
 }
 
 export function ensureProvider(home, port) {
@@ -76,9 +77,13 @@ export function activateProxy({ home, model, catalogPath, port } = {}) {
 
 export function restoreNormal({ home } = {}) {
   const h = home || codexHome();
-  const prev = prevPath(h);
-  if (!fs.existsSync(prev)) return { restored: false, reason: "sem backup pre-oc-gui" };
+  const prev = fs.existsSync(prevPath(h)) ? prevPath(h) : legacyPrevPath(h);
+  if (!fs.existsSync(prev)) return { restored: false, reason: "sem backup (pre-oc-gui / pre-oc-proxy)" };
   backup(cfgPath(h), h);
   fs.copyFileSync(prev, cfgPath(h));
+  // Normaliza: migra backup legado p/ o nome atual.
+  try {
+    if (prev !== prevPath(h)) fs.copyFileSync(prev, prevPath(h));
+  } catch { /* segue */ }
   return { restored: true, ...getCodexState(h) };
 }
