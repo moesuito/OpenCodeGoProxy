@@ -14,6 +14,7 @@ try {
   process.exit(1);
 }
 const { app, Tray, Menu, BrowserWindow, Notification, nativeImage } = electron;
+Menu.setApplicationMenu(null);
 const { loadSettings } = await import("../src/app-settings.mjs");
 
 if (!app.requestSingleInstanceLock()) {
@@ -51,10 +52,11 @@ function openPanel() {
     return;
   }
   win = new BrowserWindow({
-    width: 680,
-    height: 640,
+    width: 620,
+    height: 600,
     title: "OpenCodeGoProxy",
-    icon: path.join(ROOT, "assets", "tray.png"),
+    autoHideMenuBar: true,
+    icon: path.join(ROOT, "assets", "icon.ico"),
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   win.loadFile(path.join(ROOT, "app", "renderer", "index.html"));

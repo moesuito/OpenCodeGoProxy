@@ -5,254 +5,145 @@
 <title>OpenCodeGoProxy</title>
 <style>
   :root { color-scheme: dark; }
-  body { font-family: "Segoe UI", sans-serif; margin: 0; background: #14161a; color: #e8e8e8; }
-  header { display: flex; align-items: center; gap: 10px; padding: 14px 20px; background: #1b1e24; position: sticky; top: 0; }
-  header h2 { margin: 0; font-size: 17px; }
-  #status { font-size: 12px; padding: 3px 10px; border-radius: 20px; background: #333; }
-  #status.on { background: #1d5c34; color: #b9f5cf; }
-  #status.off { background: #6e2a2a; color: #ffd4d4; }
-  main { padding: 16px 20px 30px; }
-  section { background: #1b1e24; border: 1px solid #2a2e36; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
-  section h3 { margin: 0 0 8px; font-size: 14px; color: #9fb4ff; }
-  label { display: block; margin: 8px 0 4px; font-size: 12px; color: #aaa; }
-  input, textarea { width: 100%; box-sizing: border-box; background: #101319; color: #eee; border: 1px solid #333; border-radius: 6px; padding: 8px; }
-  textarea { height: 76px; font-family: Consolas, monospace; font-size: 12px; }
-  button { margin-top: 10px; padding: 9px 16px; border: 0; border-radius: 6px; background: #4f7cff; color: #fff; cursor: pointer; font-size: 13px; }
-  button.ghost { background: #2a2f37; }
-  button:disabled { opacity: .5; cursor: default; }
-  #msg { font-size: 13px; min-height: 18px; margin-top: 8px; color: #ffd479; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #262b33; }
-  th { color: #8b93a3; font-weight: 600; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  tr.off td { opacity: .45; }
-  .hint { font-size: 11px; color: #777; margin-top: 6px; }
-  pre { font-size: 12px; white-space: pre-wrap; background: #101319; padding: 10px; border-radius: 6px; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", sans-serif; margin: 0; background: #000; color: #f0f0f0; }
+  header { display: flex; align-items: center; gap: 12px; padding: 18px 22px 6px; }
+  header img { width: 30px; height: 30px; }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  #dot { width: 9px; height: 9px; border-radius: 50%; background: #555; margin-left: auto; }
+  #dot.on { background: #35d07f; box-shadow: 0 0 8px #35d07f; }
+  main { padding: 12px 22px 28px; max-width: 560px; }
+  section { margin-top: 22px; }
+  section h2 { font-size: 12px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: #888; margin: 0 0 10px; }
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #1c1c1c; }
+  .row:last-child { border-bottom: 0; }
+  .row .t { font-size: 14px; }
+  .row .s { font-size: 11px; color: #777; margin-top: 2px; }
+  button.sw { min-width: 92px; padding: 7px 0; border-radius: 20px; border: 1px solid #333; background: #111; color: #aaa; cursor: pointer; font-size: 12px; }
+  button.sw.on { background: #0f3d26; border-color: #35d07f; color: #b9f5cf; }
+  button.act { padding: 9px 18px; border-radius: 8px; border: 0; background: #fff; color: #000; cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 10px; }
+  button.ghost { background: #1a1a1a; color: #ddd; }
+  textarea, input { width: 100%; background: #0d0d0d; color: #eee; border: 1px solid #262626; border-radius: 8px; padding: 9px; font-size: 12px; }
+  textarea { height: 64px; font-family: Consolas, monospace; }
+  label.ck { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 13px; cursor: pointer; }
+  input[type="checkbox"] { width: 16px; height: 16px; accent-color: #fff; }
+  #msg { font-size: 12px; color: #ffd479; min-height: 16px; margin-top: 8px; }
+  .hint { font-size: 11px; color: #666; margin-top: 6px; }
 </style>
 </head>
 <body>
 <header>
-  <h2>OpenCodeGoProxy</h2>
-  <span id="status" class="off">proxy: verificando…</span>
+  <img id="logo" alt="" />
+  <h1>OpenCodeGoProxy</h1>
+  <span id="dot" title="proxy"></span>
 </header>
 <main>
   <div id="msg"></div>
 
   <section>
-    <h3>Profiles (vale p/ CLI e App — sem shims)</h3>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Codex</strong><br /><span id="cxInfo" class="hint"></span></td>
-          <td style="text-align:right"><span id="cxState">…</span><br /><button id="cxToggle" class="ghost">alternar</button></td>
-        </tr>
-        <tr>
-          <td><strong>Claude Code (CLI + extensão VS Code)</strong><br /><span id="clInfo" class="hint"></span></td>
-          <td style="text-align:right"><span id="clState">…</span><br /><button id="clToggle" class="ghost">alternar</button></td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="hint">Ativar = backup do atual + padrão no proxy. Voltar = restaura o backup byte a byte. Abrir o app/CLI normalmente usa o profile ativo.</div>
-  </section>
-
-  <section>
-    <h3>Sistema</h3>
-    <table>
-      <tbody>
-        <tr>
-          <td><input type="checkbox" id="autoStart" /> <strong>Iniciar com o Windows</strong><br /><span class="hint">Registra no Run do usuário. <span id="autoStartState"></span></span></td>
-        </tr>
-        <tr>
-          <td><input type="checkbox" id="startMinimized" /> <strong>Iniciar minimizado (tray)</strong><br /><span class="hint">Sem janela e sem notificação na abertura.</span></td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="row"><button id="saveSystem" class="ghost">Salvar sistema</button></div>
-  </section>
-
-  <section>
-    <h3>Atalhos (usam o profile ativo)</h3>
+    <h2>Profiles</h2>
     <div class="row">
-      <button id="openCodexCli" class="ghost">Abrir Codex CLI</button>
-      <button id="openCodexApp" class="ghost">Abrir Codex App</button>
-      <button id="openClaudeCli" class="ghost">Abrir Claude CLI</button>
+      <div><div class="t">Codex</div><div class="s" id="cxInfo">…</div></div>
+      <button class="sw" id="cxToggle">…</button>
     </div>
-    <div class="hint">Troque o profile acima; os atalhos obedecem. Para o App, feche antes se quiser garantir recarregamento.</div>
+    <div class="row">
+      <div><div class="t">Claude Code</div><div class="s" id="clInfo">…</div></div>
+      <button class="sw" id="clToggle">…</button>
+    </div>
   </section>
 
   <section>
-    <h3>Servidor</h3>
-    <label>Porta local</label>
-    <input id="port" type="number" />
-    <div class="hint">Codex e Claude Code apontam para http://127.0.0.1:PORTA</div>
+    <h2>API keys do OpenCode Go</h2>
+    <textarea id="keys" placeholder="Uma por linha: nome|sk-...|orcamento_diario_usd"></textarea>
+    <div class="hint" id="savedKeys"></div>
+    <button class="act" id="saveKeys">Salvar keys</button>
   </section>
 
   <section>
-    <h3>API keys do OpenCode Go</h3>
-    <label>Uma por linha: nome|sk-...|orcamento_diario_usd (a key salva some da tela por seguranca)</label>
-    <textarea id="keys" placeholder="principal|sk-...|2.0&#10;reserva|sk-...|1.0"></textarea>
-    <div id="savedKeys" class="hint"></div>
+    <h2>Sistema</h2>
+    <label class="ck"><input type="checkbox" id="autoStart" /> Iniciar com o Windows <span class="hint" id="autoStartState"></span></label>
+    <label class="ck"><input type="checkbox" id="startMinimized" /> Iniciar minimizado</label>
+    <button class="act ghost" id="saveSystem">Salvar sistema</button>
   </section>
-
-  <section>
-    <h3>Modelos e travas de cota</h3>
-    <div class="hint">Desmarcar = bloqueado no proxy (403). Preços de pico por 1M tokens + limite mensal do plano Go.</div>
-    <table>
-      <thead><tr><th></th><th>Modelo</th><th style="text-align:right">In/1M</th><th style="text-align:right">Out/1M</th><th style="text-align:right">Teto/mês</th></tr></thead>
-      <tbody id="models"></tbody>
-    </table>
-  </section>
-
-  <div class="row">
-    <button id="save">Salvar (depois: tray → Reiniciar app+proxy)</button>
-    <button id="stats" class="ghost">Atualizar gasto</button>
-  </div>
-  <pre id="out">Gasto estimado (ledger local — o console opencode.ai/auth é a verdade).</pre>
 </main>
 <script>
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
-const { exec } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
 const SRC = path.join(__dirname, "..", "..", "src");
+const $ = (id) => document.getElementById(id);
+const msg = (t) => ($("msg").textContent = t || "");
 async function mod(name) {
   return import(pathToFileURL(path.join(SRC, name)).href);
 }
-function resolveCfg() {
+function cfgPath() {
   const repo = path.join(__dirname, "..", "..", "config.json");
   if (fs.existsSync(repo)) return repo;
   return path.join(os.homedir(), "AppData", "Roaming", "OpenCodeGoProxy", "config.json");
 }
-const CFG = resolveCfg();
-const MODELS = JSON.parse(fs.readFileSync(path.join(__dirname, "models.json"), "utf8"));
-const $ = (id) => document.getElementById(id);
-const msg = (t) => ($("msg").textContent = t);
-const mask = (k) => (k && k.length > 8 ? k.slice(0, 6) + "…" + k.slice(-4) : "***");
-
+let CFG = cfgPath();
 let cfg = null;
+try { document.getElementById("logo").src = path.join(__dirname, "..", "..", "assets", "tray.png"); } catch (e) {}
 
-function renderModels() {
-  const tb = $("models");
-  tb.innerHTML = "";
-  for (const m of MODELS) {
-    const st = (cfg.models && cfg.models[m.id]) || {};
-    const tr = document.createElement("tr");
-    if (st.enabled === false) tr.className = "off";
-    tr.innerHTML =
-      `<td><input type="checkbox" data-m="${m.id}" ${st.enabled === false ? "" : "checked"} /></td>` +
-      `<td>${m.id}</td><td class="num">$${m.inputUsdPer1M.toFixed(3)}</td>` +
-      `<td class="num">$${m.outputUsdPer1M.toFixed(3)}</td><td class="num">$${m.monthlyUsd}</td>`;
-    tb.appendChild(tr);
-  }
-}
-
-function load() {
-  try {
-    cfg = JSON.parse(fs.readFileSync(CFG, "utf8"));
-  } catch (e) { msg("config.json nao encontrado — copie config.example.json"); return; }
-  $("port").value = cfg.port || 11447;
-  $("savedKeys").textContent = "Salvas: " + ((cfg.keys || []).map((k) => `${k.name} (${mask(k.key)})${k.dayBudgetUsd ? ` — $${k.dayBudgetUsd}/dia` : ""}`).join(" · ") || "nenhuma");
-  $("keys").value = "";
-  renderModels();
-  refreshStatus();
+function paintToggle(btn, active) {
+  btn.textContent = active ? "Proxy" : "Normal";
+  btn.classList.toggle("on", !!active);
 }
 
 async function refreshStatus() {
-  const port = $("port").value || 11447;
-  const el = $("status");
   try {
+    const port = (cfg && cfg.port) || 11447;
     const r = await fetch(`http://127.0.0.1:${port}/health`);
     const j = await r.json();
-    el.textContent = `proxy: ON (${(j.keys || []).length} key(s))`;
-    el.className = "on";
-  } catch (e) {
-    el.textContent = "proxy: OFF";
-    el.className = "off";
-  }
+    $("dot").classList.add("on");
+    $("dot").title = `proxy ON (${(j.keys || []).length} key(s))`;
+  } catch (e) { $("dot").classList.remove("on"); }
 }
-
-$("save").onclick = () => {
-  try {
-    cfg.port = parseInt($("port").value, 10) || 11447;
-    const lines = $("keys").value.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (lines.length) {
-      cfg.keys = lines.map((l) => {
-        const [name, key, day] = l.split("|");
-        return { name: (name || "").trim(), key: (key || "").trim(), dayBudgetUsd: day ? parseFloat(day) : undefined };
-      });
-    }
-    cfg.models = cfg.models || {};
-    document.querySelectorAll("#models input[type=checkbox]").forEach((cb) => {
-      const id = cb.dataset.m;
-      cfg.models[id] = cfg.models[id] || {};
-      if (cb.checked) delete cfg.models[id].enabled;
-      else cfg.models[id].enabled = false;
-    });
-    fs.writeFileSync(CFG, JSON.stringify(cfg, null, 2));
-    load();
-    msg("Salvo. Reinicie pelo tray: Reiniciar app+proxy.");
-  } catch (e) { msg("Erro: " + e.message); }
-};
-
-$("stats").onclick = async () => {
-  const port = $("port").value || 11447;
-  try {
-    const r = await fetch(`http://127.0.0.1:${port}/stats`);
-    $("out").textContent = JSON.stringify(await r.json(), null, 2);
-  } catch (e) { $("out").textContent = "Proxy fora do ar? " + e.message; }
-};
-
-function launch(cmd, label) {
-  exec(`start "${label}" ${cmd}`, (err) => {
-    if (err) msg("Falha ao abrir: " + err.message);
-    else msg(label + " abrindo…");
-  });
-}
-$("openCodexCli").onclick = () => launch("codex", "Codex (profile ativo)");
-$("openCodexApp").onclick = () => launch("codex app", "Codex App (profile ativo)");
-$("openClaudeCli").onclick = () => launch("claude", "Claude (profile ativo)");
-
-async function refreshSystem() {
-  try {
-    const s = await mod("app-settings.mjs");
-    const cfg = s.loadSettings();
-    $("autoStart").checked = !!cfg.autoStart;
-    $("startMinimized").checked = cfg.startMinimized !== false;
-    const real = await s.isAutoStart();
-    $("autoStartState").textContent = real ? "Ativo no Registro agora." : "Inativo no Registro agora.";
-  } catch (e) { $("autoStartState").textContent = "erro ao ler"; }
-}
-
-$("saveSystem").onclick = async () => {
-  try {
-    const s = await mod("app-settings.mjs");
-    const wantAuto = $("autoStart").checked;
-    const minimized = $("startMinimized").checked;
-    s.saveSettings({ autoStart: wantAuto, startMinimized: minimized });
-    const exe = process.execPath;
-    await s.setAutoStart(wantAuto, exe, minimized);
-    msg("Sistema salvo (autostart " + (wantAuto ? "ATIVADO" : "desativado") + ").");
-    refreshSystem();
-  } catch (e) { msg("Erro: " + e.message); }
-};
 
 async function refreshProfiles() {
   try {
     const cx = await mod("profile-codex.mjs");
     const st = cx.getCodexState();
-    $("cxState").textContent = st.active === "proxy" ? "PROXY" : "Normal";
-    $("cxInfo").textContent = `${st.model || "?"} via ${st.provider || "?"}${st.hasBackup ? " · backup ok" : ""}`;
-    $("cxToggle").textContent = st.active === "proxy" ? "Voltar ao normal" : "Usar proxy";
-  } catch (e) { $("cxState").textContent = "erro"; }
+    const on = st.active === "proxy";
+    paintToggle($("cxToggle"), on);
+    $("cxInfo").textContent = `${st.model || "?"} · ${st.provider || "openai (padrão)"}`;
+  } catch (e) {
+    $("cxToggle").textContent = "erro";
+    $("cxInfo").textContent = String(e.message || e).slice(0, 80);
+  }
   try {
     const cl = await mod("profile-claude.mjs");
     const st = cl.getClaudeState();
-    $("clState").textContent = st.active === "proxy" ? "PROXY" : "Normal";
-    $("clInfo").textContent = `${st.model || "?"} @ ${st.baseUrl || "?"}${st.hasBackup ? " · backup ok" : ""}`;
-    $("clToggle").textContent = st.active === "proxy" ? "Voltar ao normal" : "Usar proxy";
-  } catch (e) { $("clState").textContent = "erro"; }
+    const on = st.active === "proxy";
+    paintToggle($("clToggle"), on);
+    $("clInfo").textContent = `${st.model || "?"} · ${st.baseUrl ? st.baseUrl.replace("http://", "") : "?"}`;
+  } catch (e) {
+    $("clToggle").textContent = "erro";
+    $("clInfo").textContent = String(e.message || e).slice(0, 80);
+  }
+}
+
+async function refreshSystem() {
+  try {
+    const s = await mod("app-settings.mjs");
+    const c = s.loadSettings();
+    $("autoStart").checked = !!c.autoStart;
+    $("startMinimized").checked = c.startMinimized !== false;
+    $("autoStartState").textContent = await s.isAutoStart() ? "(ativo)" : "";
+  } catch (e) { /* sem sistema */ }
+}
+
+function load() {
+  try {
+    cfg = JSON.parse(fs.readFileSync(CFG, "utf8"));
+  } catch (e) { msg("config.json não encontrado"); return; }
+  const masked = (k) => (k && k.length > 8 ? k.slice(0, 6) + "…" + k.slice(-4) : "***");
+  $("savedKeys").textContent = "Salvas: " + ((cfg.keys || []).map((k) => `${k.name} (${masked(k.key)})`).join(" · ") || "nenhuma");
+  $("keys").value = "";
+  refreshStatus();
+  refreshProfiles();
+  refreshSystem();
 }
 
 $("cxToggle").onclick = async () => {
@@ -262,13 +153,13 @@ $("cxToggle").onclick = async () => {
     if (st.active === "proxy") cx.restoreNormal();
     else {
       const cat = await mod("catalog.mjs");
-      const home = path.join(require("node:os").homedir(), ".codex");
+      const home = path.join(os.homedir(), ".codex");
       const dest = path.join(home, "opencode-go-proxy-models.json");
       const key = (cfg.keys || []).find((k) => k.key && !k.key.includes("COLE"))?.key;
       await cat.generateCatalog(dest, key);
       cx.activateProxy({ model: "deepseek-v4.1-flash", catalogPath: dest, port: cfg.port || 11447 });
     }
-    msg("Profile Codex atualizado. Reinicie CLI/App abertos.");
+    msg("Codex atualizado. Reabra CLI/App.");
     refreshProfiles();
   } catch (e) { msg("Erro: " + e.message); }
 };
@@ -279,15 +170,40 @@ $("clToggle").onclick = async () => {
     const st = cl.getClaudeState();
     if (st.active === "proxy") cl.restoreNormal();
     else cl.activateProxy({ port: cfg.port || 11447 });
-    msg("Profile Claude atualizado. Novas sessões usam o profile ativo.");
+    msg("Claude atualizado. Novas sessões usam o profile ativo.");
     refreshProfiles();
   } catch (e) { msg("Erro: " + e.message); }
 };
 
+$("saveKeys").onclick = () => {
+  try {
+    const lines = $("keys").value.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length) {
+      cfg.keys = lines.map((l) => {
+        const [name, key, day] = l.split("|");
+        return { name: (name || "").trim(), key: (key || "").trim(), dayBudgetUsd: day ? parseFloat(day) : undefined };
+      });
+      fs.writeFileSync(CFG, JSON.stringify(cfg, null, 2));
+      load();
+      msg("Keys salvas. Reinicie pelo tray.");
+    } else msg("Cole ao menos uma key.");
+  } catch (e) { msg("Erro: " + e.message); }
+};
+
+$("saveSystem").onclick = async () => {
+  try {
+    const s = await mod("app-settings.mjs");
+    const wantAuto = $("autoStart").checked;
+    const minimized = $("startMinimized").checked;
+    s.saveSettings({ autoStart: wantAuto, startMinimized: minimized });
+    await s.setAutoStart(wantAuto, process.execPath, minimized);
+    msg("Sistema salvo.");
+    refreshSystem();
+  } catch (e) { msg("Erro: " + e.message); }
+};
+
 load();
-refreshProfiles();
-refreshSystem();
-setInterval(refreshStatus, 5000);
+setInterval(refreshStatus, 8000);
 </script>
 </body>
 </html>
