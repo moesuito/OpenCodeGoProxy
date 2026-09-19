@@ -1,5 +1,7 @@
 # OpenCodeGoProxy
 
+> Documentação técnica completa em [`docs/DOCUMENTACAO.md`](docs/DOCUMENTACAO.md).
+
 Proxy local para usar **todos os modelos do OpenCode Go** no **Codex (CLI + App)** e no **Claude Code**, com:
 
 - **Multi-key**: várias API keys do OpenCode Go com round-robin + fallback em 429/5xx. Cliente só recebe **429 quando TODAS zerarem** (upstream ou budget local); `retry-after` repassado.
