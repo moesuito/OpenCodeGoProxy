@@ -87,6 +87,7 @@ function extractUsage(buf, model) {
 async function forward(upPath, clientBody, clientHeaders, opts = {}) {
   const tried = new Set();
   let lastErr = null;
+  let sawUpstream429 = false;
   while (true) {
     const entry = pool.next(tried);
     if (!entry) break;
@@ -115,6 +116,7 @@ async function forward(upPath, clientBody, clientHeaders, opts = {}) {
         body: typeof clientBody === "string" ? clientBody : JSON.stringify(clientBody),
       });
       if ((res.status === 429 || res.status >= 500) && pool.next(tried)) {
+        if (res.status === 429) sawUpstream429 = true;
         pool.advance();
         lastErr = `upstream ${res.status}, tentando proxima key`;
         continue;
@@ -125,7 +127,11 @@ async function forward(upPath, clientBody, clientHeaders, opts = {}) {
       if (!pool.next(tried)) break;
     }
   }
-  throw new Error(lastErr || "sem keys disponiveis (orcamento esgotado?)");
+  // 429 so quando TODAS zeraram (upstream 429 ou todas estouraram o budget local).
+  const allOverBudget = pool.keys.length > 0 && pool.keys.every((k) => pool.overBudget(k));
+  throw Object.assign(new Error(lastErr || "sem keys disponiveis (orcamento esgotado?)"), {
+    status: sawUpstream429 || allOverBudget ? 429 : 502,
+  });
 }
 
 // Vision decoder: troca blocos de imagem por legenda textual p/ modelos cegos.
@@ -180,8 +186,9 @@ async function handleBridgedMessages(req, res, aBody, model, policy, reqPath, ta
   try {
     ({ res: up, entry } = await forward(toResponses ? "/responses" : "/chat/completions", upBody, req.headers, {}));
   } catch (e) {
-    res.writeHead(502, { "content-type": "application/json" });
-    res.end(JSON.stringify(anthropicError(502, e?.message)));
+    const st = e.status || 502;
+    res.writeHead(st, { "content-type": "application/json" });
+    res.end(JSON.stringify(anthropicError(st, e?.message)));
     return;
   }
   const finish = (input, output, status, errText) => {
@@ -356,7 +363,12 @@ export const server = http.createServer(async (req, res) => {
         console.log(
           `[${model}] sanitizado (${Math.round(droppedChars / 4)} tokens poupados): ${dropped.join("; ")}`
         );
-      res.writeHead(up.status, { "content-type": up.headers.get("content-type") || "application/json" });
+      res.writeHead(up.status, {
+        "content-type": up.headers.get("content-type") || "application/json",
+        ...(up.status === 429 && up.headers.get("retry-after")
+          ? { "retry-after": up.headers.get("retry-after") }
+          : {}),
+      });
       res.end(buf);
       pool.advance();
       return;
@@ -364,7 +376,8 @@ export const server = http.createServer(async (req, res) => {
     res.writeHead(404, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: "rota desconhecida" }));
   } catch (e) {
-    res.writeHead(502, { "content-type": "application/json" });
+    // 429 so quando TODAS as keys zeraram; resto e 502.
+    res.writeHead(e.status || 502, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: String(e?.message || e) }));
   }
 });

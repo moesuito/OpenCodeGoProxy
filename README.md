@@ -2,7 +2,7 @@
 
 Proxy local para usar **todos os modelos do OpenCode Go** no **Codex (CLI + App)** e no **Claude Code**, com:
 
-- **Multi-key**: várias API keys do OpenCode Go com round-robin + fallback em 429/5xx.
+- **Multi-key**: várias API keys do OpenCode Go com round-robin + fallback em 429/5xx. Cliente só recebe **429 quando TODAS zerarem** (upstream ou budget local); `retry-after` repassado.
 - **Sanitização por modelo**: remove schemas recursivos (`$ref` cíclico, ex: tools do Gmail no Codex) e converte tools `custom` — o motivo real do erro `Recursive JSON schemas are not currently supported` no Muse Spark.
 - **Travas de cota**: allowlist de modelos, `maxOutputTokens`, teto de reasoning effort e orçamento diário estimado (USD) por key. Estimativas locais — o console oficial (`opencode.ai/auth`) é a verdade.
 - **Setup guiado** para Codex e Claude Code + **app Electron** que vive no tray.
