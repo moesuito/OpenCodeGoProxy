@@ -2,6 +2,7 @@ node_modules/
 config.json
 data/*.jsonl
 data/ledger.json
+data/dump-*
 dist/
 *.log
 .DS_Store

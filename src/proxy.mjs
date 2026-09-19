@@ -37,7 +37,7 @@ function loadConfig() {
 
 const config = loadConfig();
 const UPSTREAM = (config.upstream || "https://opencode.ai/zen/go/v1").replace(/\/$/, "");
-const PORT = config.port || 11447;
+const PORT = process.env.OPENCODE_GO_PROXY_PORT || config.port || 11447;
 const pool = new KeyPool(config.keys);
 let modelsCache = { at: 0, body: null };
 
@@ -179,6 +179,13 @@ export const server = http.createServer(async (req, res) => {
         keyHeader: p === "/messages" ? "x-api-key" : undefined,
       });
       const buf = Buffer.from(await up.arrayBuffer());
+      if (process.env.OPENCODE_GO_PROXY_DUMP === "1") {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(path.join(DATA_DIR, `dump-${id}-req.json`), JSON.stringify({ model, path: url.pathname, dropped, body }, null, 1).slice(0, 200000));
+        fs.writeFileSync(path.join(DATA_DIR, `dump-${id}-res.bin`), buf.slice(0, 500000));
+        console.log(`[dump] ${id} (${model}, ${dropped.length} drops)`);
+      }
       const { input, output } = extractUsage(buf, model);
       const usd = pool.record(entry, model, input, output) || estimateUsd(model, input, output);
       logUsage({
