@@ -44,6 +44,8 @@ npm run proxy
 | `models.<id>.bridge` | `auto` (default), `chat`, `responses` ou `false`. Força o modo da bridge `/messages` |
 | `models.<id>.toolsAllow` | allowlist de tools na bridge. Default nos strict (Muse): Bash, Read, Write, Edit, Glob, Grep, TodoWrite, WebFetch, WebSearch |
 | `models.<id>.nudgeTools` | instrução anti-"DONE preguiçoso" nos strict (Muse): agir via tools sempre |
+| `models.<id>.vision` | `auto` (default), `true` ou `false`. `auto` legenda via vision model só p/ comprovadamente cegos (Muse 1.2/1.3, Kimi 2.6, GLM 5.x não-flash) |
+| `visionModel` (topo) | modelo legendador (default `deepseek-v4-flash-vision-exp`), com cache por hash em `data/vision-cache.json` |
 | `defaults.*` | padrão para modelos não listados |
 
 Modelos baratos e bons p/ dia a dia: `deepseek-v4.1-flash`, `muse-spark-1.3-contributor`, `glm-5.3-flash`, `mimo-v2.5`.

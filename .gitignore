@@ -3,6 +3,7 @@ config.json
 data/*.jsonl
 data/ledger.json
 data/dump-*
+data/vision-cache.json
 dist/
 *.log
 .DS_Store

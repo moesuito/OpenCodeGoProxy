@@ -142,5 +142,7 @@ export function modelPolicy(model, config) {
     toolsAllow: per.toolsAllow ?? (isStrictUpstream(model) ? [...SLIM_TOOLS] : undefined),
     // Nudge anti-"DONE preguiçoso" nos strict (Muse): instrui a sempre agir via tools.
     nudgeTools: per.nudgeTools ?? isStrictUpstream(model),
+    // Vision decoder: "auto" (so p/ comprovadamente cegos), true/false.
+    vision: per.vision ?? config.defaults?.vision ?? "auto",
   };
 }

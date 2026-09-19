@@ -23,6 +23,9 @@ import {
   createResponsesToAnthropicStream,
   anthropicError,
 } from "./anthropic-bridge.mjs";
+import {
+  shouldDecode, findImages, dataUrlOf, replaceWithCaption, describeImage, DEFAULT_VISION_MODEL,
+} from "./vision.mjs";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const CONFIG_PATH = resolveConfigPath();
@@ -123,6 +126,37 @@ async function forward(upPath, clientBody, clientHeaders, opts = {}) {
     }
   }
   throw new Error(lastErr || "sem keys disponiveis (orcamento esgotado?)");
+}
+
+// Vision decoder: troca blocos de imagem por legenda textual p/ modelos cegos.
+async function decodeImages(body, model, policy) {
+  if (!shouldDecode(model, policy)) return { decoded: 0, captionCost: 0 };
+  const found = findImages(body);
+  if (!found.length) return { decoded: 0, captionCost: 0 };
+  const vEntry = pool.next(new Set());
+  if (!vEntry) return { decoded: 0, captionCost: 0 };
+  const vModel = config.visionModel || DEFAULT_VISION_MODEL;
+  const sessionId = randomUUID();
+  let cost = 0;
+  let n = 0;
+  for (const [i, f] of found.entries()) {
+    try {
+      const r = await describeImage(dataUrlOf(f), {
+        key: vEntry.key, upstream: UPSTREAM, sessionId,
+        visionModel: vModel, dataDir: DATA_DIR,
+      });
+      replaceWithCaption(f, r.caption, n + 1);
+      n++;
+      if (!r.cached) {
+        pool.record(vEntry, r.model, r.usage.input, r.usage.output);
+        cost += r.cost;
+      }
+    } catch (e) {
+      console.log(`[vision] legenda falhou (${model}): ${e.message}`);
+    }
+  }
+  if (n) console.log(`[vision] ${model}: ${n} imagem(ns) legendada(s) via ${vModel} ($${cost.toFixed(6)})`);
+  return { decoded: n, captionCost: cost };
 }
 
 // POST /messages com bridge: Anthropic -> /chat ou /responses -> Anthropic.
@@ -272,6 +306,7 @@ export const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: `modelo ${model} desabilitado no config.json (trava de cota)` }));
         return;
       }
+      const vision = await decodeImages(body, model, policy);
       let upPath = "/chat/completions";
       let dropped = [];
       let droppedChars = 0;
@@ -315,6 +350,7 @@ export const server = http.createServer(async (req, res) => {
         usd_estimate: usd,
         sanitized_dropped: dropped,
         approx_input_tokens_saved: Math.round(droppedChars / 4),
+        ...(vision.decoded ? { vision_decoded: vision.decoded, vision_cost_usd: vision.captionCost } : {}),
       });
       if (dropped.length)
         console.log(
