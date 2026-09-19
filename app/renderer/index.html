@@ -40,13 +40,30 @@
   <div id="msg"></div>
 
   <section>
-    <h3>Atalhos (usam o proxy — o padrão continua intacto)</h3>
+    <h3>Profiles (vale p/ CLI e App — sem shims)</h3>
+    <table>
+      <tbody>
+        <tr>
+          <td><strong>Codex</strong><br /><span id="cxInfo" class="hint"></span></td>
+          <td style="text-align:right"><span id="cxState">…</span><br /><button id="cxToggle" class="ghost">alternar</button></td>
+        </tr>
+        <tr>
+          <td><strong>Claude Code (CLI + extensão VS Code)</strong><br /><span id="clInfo" class="hint"></span></td>
+          <td style="text-align:right"><span id="clState">…</span><br /><button id="clToggle" class="ghost">alternar</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="hint">Ativar = backup do atual + padrão no proxy. Voltar = restaura o backup byte a byte. Abrir o app/CLI normalmente usa o profile ativo.</div>
+  </section>
+
+  <section>
+    <h3>Atalhos (usam o profile ativo)</h3>
     <div class="row">
-      <button id="openCodexCli" class="ghost">Abrir Codex CLI (codex-oc)</button>
-      <button id="openCodexApp" class="ghost">Abrir Codex App (proxy)</button>
-      <button id="openClaudeCli" class="ghost">Abrir Claude CLI (claude-oc)</button>
+      <button id="openCodexCli" class="ghost">Abrir Codex CLI</button>
+      <button id="openCodexApp" class="ghost">Abrir Codex App</button>
+      <button id="openClaudeCli" class="ghost">Abrir Claude CLI</button>
     </div>
-    <div class="hint">O App fecha o Codex/ChatGPT aberto e reabre no proxy. Abrir pelos ícones normais mantém a autenticação padrão.</div>
+    <div class="hint">Troque o profile acima; os atalhos obedecem. Para o App, feche antes se quiser garantir recarregamento.</div>
   </section>
 
   <section>
@@ -83,6 +100,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 const { exec } = require("node:child_process");
+const { pathToFileURL } = require("node:url");
+const SRC = path.join(__dirname, "..", "..", "src");
+async function mod(name) {
+  return import(pathToFileURL(path.join(SRC, name)).href);
+}
 function resolveCfg() {
   const repo = path.join(__dirname, "..", "..", "config.json");
   if (fs.existsSync(repo)) return repo;
@@ -173,11 +195,58 @@ function launch(cmd, label) {
     else msg(label + " abrindo…");
   });
 }
-$("openCodexCli").onclick = () => launch("codex-oc", "Codex via proxy");
-$("openCodexApp").onclick = () => launch("codex-oc-app", "Codex App via proxy");
-$("openClaudeCli").onclick = () => launch("claude-oc", "Claude via proxy");
+$("openCodexCli").onclick = () => launch("codex", "Codex (profile ativo)");
+$("openCodexApp").onclick = () => launch("codex app", "Codex App (profile ativo)");
+$("openClaudeCli").onclick = () => launch("claude", "Claude (profile ativo)");
+
+async function refreshProfiles() {
+  try {
+    const cx = await mod("profile-codex.mjs");
+    const st = cx.getCodexState();
+    $("cxState").textContent = st.active === "proxy" ? "PROXY" : "Normal";
+    $("cxInfo").textContent = `${st.model || "?"} via ${st.provider || "?"}${st.hasBackup ? " · backup ok" : ""}`;
+    $("cxToggle").textContent = st.active === "proxy" ? "Voltar ao normal" : "Usar proxy";
+  } catch (e) { $("cxState").textContent = "erro"; }
+  try {
+    const cl = await mod("profile-claude.mjs");
+    const st = cl.getClaudeState();
+    $("clState").textContent = st.active === "proxy" ? "PROXY" : "Normal";
+    $("clInfo").textContent = `${st.model || "?"} @ ${st.baseUrl || "?"}${st.hasBackup ? " · backup ok" : ""}`;
+    $("clToggle").textContent = st.active === "proxy" ? "Voltar ao normal" : "Usar proxy";
+  } catch (e) { $("clState").textContent = "erro"; }
+}
+
+$("cxToggle").onclick = async () => {
+  try {
+    const cx = await mod("profile-codex.mjs");
+    const st = cx.getCodexState();
+    if (st.active === "proxy") cx.restoreNormal();
+    else {
+      const cat = await mod("catalog.mjs");
+      const home = path.join(require("node:os").homedir(), ".codex");
+      const dest = path.join(home, "opencode-go-proxy-models.json");
+      const key = (cfg.keys || []).find((k) => k.key && !k.key.includes("COLE"))?.key;
+      await cat.generateCatalog(dest, key);
+      cx.activateProxy({ model: "deepseek-v4.1-flash", catalogPath: dest, port: cfg.port || 11447 });
+    }
+    msg("Profile Codex atualizado. Reinicie CLI/App abertos.");
+    refreshProfiles();
+  } catch (e) { msg("Erro: " + e.message); }
+};
+
+$("clToggle").onclick = async () => {
+  try {
+    const cl = await mod("profile-claude.mjs");
+    const st = cl.getClaudeState();
+    if (st.active === "proxy") cl.restoreNormal();
+    else cl.activateProxy({ port: cfg.port || 11447 });
+    msg("Profile Claude atualizado. Novas sessões usam o profile ativo.");
+    refreshProfiles();
+  } catch (e) { msg("Erro: " + e.message); }
+};
 
 load();
+refreshProfiles();
 setInterval(refreshStatus, 5000);
 </script>
 </body>

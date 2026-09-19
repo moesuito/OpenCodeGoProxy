@@ -1,11 +1,5 @@
-// Setup NAO-DESTRUTIVO: cria profile secundario + shims, sem tocar no padrao.
-// - Codex: provider opencode_go_proxy (append) + catalogo + profile opencode-go-proxy.
-//   O model/model_provider padrao do usuario NAO e alterado.
-// - Shims no %USERPROFILE%\.local\bin (ja esta no PATH):
-//     codex-oc      -> Codex CLI no profile do proxy
-//     codex-oc-app  -> fecha Codex/ChatGPT abertos e abre o Desktop App no proxy
-//     claude-oc     -> Claude Code CLI via proxy (/messages)
-// Abrir codex/claude/app normalmente continua usando a autenticacao padrao.
+// Setup inicial: provider + catalogo + profile --profile (opcional p/ CLI).
+// A troca Normal <-> Proxy e feita no painel GUI (secao Profiles, com backup).
 // Uso: node src/setup.mjs [--port 11447] [--model deepseek-v4.1-flash] [--claude-model minimax-m2.7]
 import fs from "node:fs";
 import os from "node:os";
@@ -77,34 +71,20 @@ function writeShim(name, content) {
 const HEALTH_CHECK = `curl -s -o NUL -m 3 http://127.0.0.1:${PORT}/health || start "OpenCodeGoProxy" /min node "${PROXY_JS}"\r\n`;
 
 function setupShims(catalogPath) {
-  writeShim(
-    "codex-oc.cmd",
-    `@echo off\r\nREM Codex CLI via proxy OpenCodeGoProxy (nao altera o padrao)\r\n${HEALTH_CHECK}codex --profile opencode-go-proxy %*\r\n`
-  );
-  // O App Desktop ignora overrides -c no picker: precisa do proxy no config BASE.
-  // app-activate.mjs faz isso com backup (reversivel via app-restore).
-  writeShim(
-    "codex-oc-app.cmd",
-    `@echo off\r\nREM Codex Desktop App via proxy (altera o padrao COM backup; reverta com codex-oc-app-restore)\r\n${HEALTH_CHECK}node "${path.join(ROOT, "src", "app-activate.mjs")}" --model ${MODEL}\r\ntaskkill /F /IM Codex.exe 2>NUL\r\ntaskkill /F /IM ChatGPT.exe 2>NUL\r\ntimeout /t 2 /nobreak >NUL\r\ncodex app %*\r\n`
-  );
-  writeShim(
-    "codex-oc-app-restore.cmd",
-    `@echo off\r\nREM Volta o config padrao anterior ao codex-oc-app\r\nnode "${path.join(ROOT, "src", "app-restore.mjs")}"\r\n`
-  );
-  // settings.json do Claude tem precedencia sobre env: o shim gera um
-  // settings adicional com o proxy e passa via --settings (merge com override).
-  writeShim(
-    "claude-oc.cmd",
-    `@echo off\r\nREM Claude Code CLI via proxy OpenCodeGoProxy (nao altera o padrao)\r\n${HEALTH_CHECK}if "%OC_PROXY_MODEL%"=="" set OC_PROXY_MODEL=${CLAUDE_MODEL}\r\n(echo {"env": {"ANTHROPIC_BASE_URL": "http://127.0.0.1:${PORT}", "ANTHROPIC_API_KEY": "local", "ANTHROPIC_MODEL": "%OC_PROXY_MODEL%"}}) > "%TEMP%\\claude-oc-settings.json"\r\nclaude --settings "%TEMP%\\claude-oc-settings.json" --model "%OC_PROXY_MODEL%" %*\r\n`
-  );
+  // Shims -oc aposentados: o switch de profiles agora vive no painel GUI.
+  // (Perfis --profile continuam disponiveis p/ quem prefere CLI.)
+  for (const name of ["codex-oc.cmd", "codex-oc-app.cmd", "codex-oc-app-restore.cmd", "claude-oc.cmd"]) {
+    const dest = path.join(BIN, name);
+    if (fs.existsSync(dest)) {
+      fs.rmSync(dest);
+      console.log(`[shim] removido (legado): ${dest}`);
+    }
+  }
 }
 
 ensureCodexProvider();
 const catalogPath = writeCatalog();
 writeProfile(catalogPath);
 setupShims(catalogPath);
-console.log("\nPronto (nada do padrao foi alterado):");
-console.log("  codex-oc        -> Codex CLI no proxy");
-console.log("  codex-oc-app    -> Codex Desktop App no proxy (fecha o aberto antes)");
-console.log("  claude-oc       -> Claude Code CLI no proxy (modelo via OC_PROXY_MODEL)");
-console.log('  Env do proxy (qualquer valor): setx OPENCODE_GO_PROXY_KEY "local"');
+console.log("\nPronto. Troque de profile pelo painel do app (secao Profiles).");
+console.log('Env do proxy (qualquer valor): setx OPENCODE_GO_PROXY_KEY "local"');

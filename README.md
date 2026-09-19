@@ -48,33 +48,40 @@ npm run proxy
 
 Modelos baratos e bons p/ dia a dia: `deepseek-v4.1-flash`, `muse-spark-1.3-contributor`, `glm-5.3-flash`, `mimo-v2.5`.
 
-## Codex (CLI + App)
+## Profiles: Normal <-> Proxy (painel GUI)
+
+A seção **Profiles** do painel alterna Codex e Claude Code entre o profile
+normal e o proxy, **com backup restaurável** (`config.toml.pre-oc-gui`,
+`settings.json.pre-oc-gui` + cópias com timestamp):
+
+- **Codex**: troca `model`/`model_provider`/`model_catalog_json` no `config.toml`
+  base — vale para CLI **e** App (o App ignora overrides, por isso é no base).
+- **Claude Code**: troca só endpoint+key no `settings.json` (modelos do usuário
+  preservados). Cobre CLI e extensão do VS Code (mesmo backend).
+- Voltar = restaura o backup **byte a byte**. Estado detectado por leitura
+  (sobrevive a reinícios).
+
+## Setup inicial (uma vez)
 
 ```powershell
 npm run setup:codex -- --model deepseek-v4.1-flash
 ```
 
-Isso cria: provider `opencode_go_proxy` no `config.toml`, catálogo `opencode-go-proxy-models.json` (gerado do `/models` live, com `freeform` só onde o upstream tolera) e o profile `opencode-go-proxy`. Uso:
+Isso cria: provider `opencode_go_proxy` no `config.toml`, catálogo `opencode-go-proxy-models.json` (gerado do `/models` live) e o profile `opencode-go-proxy` (útil p/ CLI avançado: `codex --profile opencode-go-proxy`).
 
-```powershell
-codex --profile opencode-go-proxy
-codex app -c "model_provider='opencode_go_proxy'" -c "model='muse-spark-1.3-contributor'" -c "model_catalog_json='C:\Users\<voce>\.codex\opencode-go-proxy-models.json'"
-```
-
-Com o proxy sanitizando, **não precisa** de `[features] apps = false` — Gmail/GitHub/Drive continuam ativos.
+Com o proxy sanitizando, **não precisa** de `[features] apps = false`.
 
 Defina `OPENCODE_GO_PROXY_KEY` com qualquer valor (a key real fica no `config.json` do proxy):
 ```powershell
 setx OPENCODE_GO_PROXY_KEY "local"
 ```
 
-## Claude Code
+## Claude Code (detalhes)
 
-```powershell
-npm run setup:claude -- --model minimax-m2.7
-```
-
-Exporte as variáveis exibidas (`ANTHROPIC_BASE_URL=http://127.0.0.1:11447`). Modelos com endpoint nativo `/messages` no Go: `minimax-*`, `qwen3.*` — prefira esses no Claude Code.
+Modelos com endpoint nativo `/messages` no Go passam direto; os demais usam
+a bridge (`/chat` ou `/responses`, automático por modelo, configurável via
+`models.<id>.bridge`). `npm run setup:claude` mostra as variáveis de ambiente
+manuais — mas o recomendado é o switch no painel.
 
 ## App com tray (Electron)
 
@@ -83,7 +90,7 @@ npm i -D electron
 npm run app
 ```
 
-Painel: porta, keys (`nome|sk-...|orcamento`), modelos bloqueados e leitura de gasto (`/stats`). O app minimiza para o tray.
+Painel: **Profiles** (Normal↔Proxy p/ Codex e Claude), atalhos, porta, keys (`nome|sk-...|orcamento`), modelos bloqueados e leitura de gasto (`/stats`). O app minimiza para o tray.
 
 ## Endpoints do proxy
 

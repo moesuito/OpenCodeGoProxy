@@ -8,9 +8,14 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const { displayName, reasoningFor, isStrictUpstream, UNAVAILABLE } = await import("./model-meta.mjs");
-const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "config.json"), "utf8"));
-const UPSTREAM = (cfg.upstream || "https://opencode.ai/zen/go/v1").replace(/\/$/, "");
-const KEY = cfg.keys?.find((k) => k.key && !k.key.includes("COLE"))?.key || process.env.OPENCODE_API_KEY;
+
+function readCfg() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, "config.json"), "utf8"));
+  } catch {
+    return {};
+  }
+}
 
 const BASE_INSTRUCTIONS =
   "You are Codex, a coding agent working in the user's local workspace. Follow developer and user instructions, use the available tools when needed, and keep answers accurate and concise.";
@@ -61,29 +66,41 @@ function entryFor(id) {
   return e;
 }
 
-async function main() {
-  if (!KEY) throw new Error("Sem API key: preencha config.json ou OPENCODE_API_KEY.");
+export async function generateCatalog(dest, key) {
+  const cfg = readCfg();
+  const UPSTREAM = (cfg.upstream || "https://opencode.ai/zen/go/v1").replace(/\/$/, "");
+  const k = key || cfg.keys?.find((x) => x.key && !x.key.includes("COLE"))?.key || process.env.OPENCODE_API_KEY;
+  if (!k) throw new Error("Sem API key: preencha config.json ou OPENCODE_API_KEY.");
   const r = await fetch(UPSTREAM + "/models", {
-    headers: { authorization: `Bearer ${KEY}`, "user-agent": "OpenCodeGoProxy/0.1.0" },
+    headers: { authorization: `Bearer ${k}`, "user-agent": "OpenCodeGoProxy/0.1.0" },
   });
   if (!r.ok) throw new Error(`models -> ${r.status}`);
   const j = await r.json();
   const ids = (j.data || j.models || []).map((m) => m.id || m).filter(Boolean);
   const skipped = ids.filter((id) => UNAVAILABLE.includes(id));
   const live = ids.filter((id) => !UNAVAILABLE.includes(id));
-  if (skipped.length) console.error(`excluidos (upstream indisponivel): ${skipped.join(", ")}`);
   const catalog = { models: live.map(entryFor) };
   const out = JSON.stringify(catalog, null, 2) + "\n";
+  fs.writeFileSync(dest, out);
+  return { total: live.length, skipped, dest };
+}
+
+async function main() {
   const i = process.argv.indexOf("--write");
   if (i >= 0 && process.argv[i + 1]) {
-    fs.writeFileSync(process.argv[i + 1], out);
-    console.log(`catalogo com ${live.length} modelos -> ${process.argv[i + 1]}`);
+    const r = await generateCatalog(process.argv[i + 1]);
+    if (r.skipped.length) console.error(`excluidos (upstream indisponivel): ${r.skipped.join(", ")}`);
+    console.log(`catalogo com ${r.total} modelos -> ${r.dest}`);
   } else {
-    console.log(out);
+    const r = await generateCatalog(process.argv[i + 1] || path.join(ROOT, "catalog.out.json"));
+    console.log(`catalogo com ${r.total} modelos`);
   }
 }
 
-main().catch((e) => {
-  console.error("ERRO:", e.message);
-  process.exit(1);
-});
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((e) => {
+    console.error("ERRO:", e.message);
+    process.exit(1);
+  });
+}
