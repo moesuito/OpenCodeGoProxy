@@ -21,6 +21,13 @@
   .row .s { font-size: 11px; color: #777; margin-top: 2px; max-width: 340px; }
   button.sw { min-width: 92px; padding: 7px 0; border-radius: 20px; border: 1px solid #333; background: #111; color: #aaa; cursor: pointer; font-size: 12px; }
   button.sw.on { background: #0f3d26; border-color: #35d07f; color: #b9f5cf; }
+  label.switch { position: relative; display: inline-block; width: 52px; height: 28px; flex-shrink: 0; cursor: pointer; }
+  label.switch input { opacity: 0; width: 0; height: 0; }
+  label.switch .track { position: absolute; inset: 0; border-radius: 20px; background: #3a3a3a; transition: background .2s; }
+  label.switch .track::before { content: ""; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  label.switch input:checked + .track { background: #22b45e; }
+  label.switch input:checked + .track::before { transform: translateX(24px); }
+  label.switch input:disabled + .track { opacity: .5; cursor: default; }
   button.act { padding: 9px 18px; border-radius: 8px; border: 0; background: #fff; color: #000; cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 10px; }
   button.ghost { background: #1a1a1a; color: #ddd; }
   textarea { width: 100%; background: #0d0d0d; color: #eee; border: 1px solid #262626; border-radius: 8px; padding: 9px; font-size: 12px; height: 64px; font-family: Consolas, monospace; }
@@ -43,11 +50,11 @@
     <h2>Profiles</h2>
     <div class="row">
       <div><div class="t">Codex</div><div class="s" id="cxInfo">…</div></div>
-      <button class="sw" id="cxToggle">…</button>
+      <label class="switch"><input type="checkbox" id="cxToggle" /><span class="track"></span></label>
     </div>
     <div class="row">
       <div><div class="t">Claude Code</div><div class="s" id="clInfo">…</div></div>
-      <button class="sw" id="clToggle">…</button>
+      <label class="switch"><input type="checkbox" id="clToggle" /><span class="track"></span></label>
     </div>
   </section>
 
@@ -74,9 +81,9 @@ const call = (name, args) => ipcRenderer.invoke("oc:call", name, args || {});
 try { $("logo").src = path.join(__dirname, "..", "..", "assets", "tray.png"); } catch (e) {}
 let PORT = 11447;
 
-function paintToggle(btn, active) {
-  btn.textContent = active ? "Proxy" : "Normal";
-  btn.classList.toggle("on", !!active);
+function paintToggle(input, active) {
+  input.checked = !!active;
+  input.disabled = false;
 }
 
 async function refreshStatus() {
@@ -95,7 +102,7 @@ async function refreshProfiles() {
     paintToggle($("cxToggle"), on);
     $("cxInfo").textContent = `${st.model || "?"} · ${st.provider || "openai (padrão)"}`;
   } catch (e) {
-    $("cxToggle").textContent = "erro";
+    $("cxToggle").disabled = true;
     $("cxInfo").textContent = String((e && e.message) || e).slice(0, 100);
   }
   try {
@@ -104,7 +111,7 @@ async function refreshProfiles() {
     paintToggle($("clToggle"), on);
     $("clInfo").textContent = `${st.model || "?"} · ${(st.baseUrl || "?").replace("http://", "")}`;
   } catch (e) {
-    $("clToggle").textContent = "erro";
+    $("clToggle").disabled = true;
     $("clInfo").textContent = String((e && e.message) || e).slice(0, 100);
   }
 }
@@ -130,22 +137,24 @@ async function load() {
   refreshSystem();
 }
 
-$("cxToggle").onclick = async () => {
+$("cxToggle").onchange = async () => {
+  $("cxToggle").disabled = true;
   try {
     const r = await call("codexToggle");
     if (r && r.restored === false) msg("Não voltou ao normal: " + (r.reason || "?"));
     else msg("Codex atualizado. Reabra CLI/App.");
     refreshProfiles();
-  } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
+  } catch (e) { msg("Erro: " + ((e && e.message) || e)); refreshProfiles(); }
 };
 
-$("clToggle").onclick = async () => {
+$("clToggle").onchange = async () => {
+  $("clToggle").disabled = true;
   try {
     const r = await call("claudeToggle");
     if (r && r.restored === false) msg("Não voltou ao normal: " + (r.reason || "?"));
     else msg("Claude atualizado. Novas sessões usam o profile ativo.");
     refreshProfiles();
-  } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
+  } catch (e) { msg("Erro: " + ((e && e.message) || e)); refreshProfiles(); }
 };
 
 $("saveKeys").onclick = async () => {
