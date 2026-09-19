@@ -46,10 +46,12 @@ function textOf(blocks) {
 // --- Request: Anthropic -> Chat ---
 export function translateMessagesRequest(a, policy = {}) {
   const out = { model: a.model, stream: a.stream === true, messages: [] };
-  if (a.system) {
-    const sys = textOf(a.system);
-    if (sys) out.messages.push({ role: "system", content: sys });
-  }
+  const sysText =
+    textOf(a.system) +
+    (policy.nudgeTools
+      ? "\n\n[bridge] When the user asks you to DO something, you MUST call the provided tools to do it. Never claim completion (e.g. DONE) without actually calling the tool. Call one tool per step and wait for its result."
+      : "");
+  if (sysText.trim()) out.messages.push({ role: "system", content: sysText.trim() });
   for (const m of a.messages || []) {
     if (m.role === "tool" || m.role === "function") continue;
     if (m.role === "user") {
@@ -101,7 +103,8 @@ export function translateMessagesRequest(a, policy = {}) {
     }
   }
   if (Array.isArray(a.tools) && a.tools.length) {
-    out.tools = a.tools.map((t) => ({
+    const tools = filterTools(a.tools, policy.toolsAllow);
+    out.tools = tools.map((t) => ({
       type: "function",
       function: {
         name: t.name,
@@ -109,12 +112,15 @@ export function translateMessagesRequest(a, policy = {}) {
         parameters: t.input_schema || { type: "object" },
       },
     }));
-    const tc = a.tool_choice;
-    if (tc?.type === "auto" || tc === "auto") out.tool_choice = "auto";
-    else if (tc?.type === "any") out.tool_choice = "required";
-    else if (tc?.type === "tool" && tc.name)
-      out.tool_choice = { type: "function", function: { name: tc.name } };
-    else if (tc?.type === "none") out.tool_choice = "none";
+    if (!out.tools.length) delete out.tools;
+    else {
+      const tc = a.tool_choice;
+      if (tc?.type === "auto" || tc === "auto" || !tc) out.tool_choice = "auto";
+      else if (tc?.type === "any") out.tool_choice = "required";
+      else if (tc?.type === "tool" && tc.name)
+        out.tool_choice = { type: "function", function: { name: tc.name } };
+      else if (tc?.type === "none") out.tool_choice = "none";
+    }
   }
   if (typeof a.max_tokens === "number") out.max_tokens = a.max_tokens;
   if (policy.maxOutputTokens && (!out.max_tokens || out.max_tokens > policy.maxOutputTokens))
@@ -179,7 +185,15 @@ export function anthropicError(status, message) {
   return { type: "error", error: { type, message: String(message || "upstream error").slice(0, 500) } };
 }
 
-// --- Request: Anthropic -> Responses (p/ modelos responses-native: Muse, GPT Luna, Grok) ---
+// Allowlist padrao p/ upstreams strict: menos schemas = menos confusao + menos cota.
+export const SLIM_TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "TodoWrite", "WebFetch", "WebSearch"];
+
+function filterTools(tools, allow) {
+  if (!Array.isArray(tools)) return tools;
+  if (!allow) return tools;
+  const set = new Set(allow);
+  return tools.filter((t) => set.has(t.name));
+}
 export function translateMessagesToResponses(a, policy = {}) {
   const input = [];
   for (const m of a.messages || []) {
@@ -234,20 +248,26 @@ export function translateMessagesToResponses(a, policy = {}) {
   }
   const out = { model: a.model, input, stream: a.stream === true };
   const sys = textOf(a.system);
-  if (sys) out.instructions = sys;
+  const nudge =
+    policy.nudgeTools === false ? ""
+    : "\n\n[bridge] When the user asks you to DO something, you MUST call the provided tools to do it. Never claim completion (e.g. DONE) without actually calling the tool. Call one tool per step and wait for its result.";
+  if (sys || nudge) out.instructions = (sys + nudge).trim();
   if (Array.isArray(a.tools) && a.tools.length) {
-    out.tools = a.tools.map((t) => ({
-      type: "function",
-      name: t.name,
-      description: t.description || "",
-      parameters: t.input_schema || { type: "object" },
-      strict: false,
-    }));
-    const tc = a.tool_choice;
-    if (tc?.type === "any") out.tool_choice = "required";
-    else if (tc?.type === "none") out.tool_choice = "none";
-    else if (tc?.type === "tool" && tc.name) out.tool_choice = { type: "function", name: tc.name };
-    else out.tool_choice = "auto";
+    const tools = filterTools(a.tools, policy.toolsAllow);
+    if (tools.length) {
+      out.tools = tools.map((t) => ({
+        type: "function",
+        name: t.name,
+        description: t.description || "",
+        parameters: t.input_schema || { type: "object" },
+        strict: false,
+      }));
+      const tc = a.tool_choice;
+      if (tc?.type === "any") out.tool_choice = "required";
+      else if (tc?.type === "none") out.tool_choice = "none";
+      else if (tc?.type === "tool" && tc.name) out.tool_choice = { type: "function", name: tc.name };
+      else out.tool_choice = "auto";
+    }
   }
   const cap = policy.maxOutputTokens || 8192;
   out.max_output_tokens = typeof a.max_tokens === "number" ? Math.min(a.max_tokens, cap) : cap;
@@ -345,17 +365,20 @@ export function createResponsesToAnthropicStream() {
       const it = data.item;
       st.items.set(it.id, { id: it.id, name: it.name || "", callId: it.call_id || "", buf: "", started: false, order: -1 });
     } else if (type === "response.function_call_arguments.delta") {
-      const it = st.items.get(data.item_id) || { id: data.item_id, name: "", callId: "", buf: "", started: false, order: -1 };
+      const it = st.items.get(data.item_id) || { id: data.item_id, name: "", callId: "", buf: "", started: false, order: -1, live: false, flushed: false };
       if (!st.items.has(data.item_id)) st.items.set(data.item_id, it);
       it.buf += data.delta || "";
       if (it.name) {
         out += startTool(it);
-        if (data.delta) out += sse("content_block_delta", { type: "content_block_delta", index: it.order, delta: { type: "input_json_delta", partial_json: data.delta } });
+        if (data.delta) {
+          it.live = true;
+          out += sse("content_block_delta", { type: "content_block_delta", index: it.order, delta: { type: "input_json_delta", partial_json: data.delta } });
+        }
       }
     } else if (type === "response.output_item.done" && data.item?.type === "function_call") {
       let it = st.items.get(data.item.id);
       if (!it) {
-        it = { id: data.item.id, name: data.item.name || "", callId: data.item.call_id || "", buf: data.item.arguments || "", started: false, order: -1 };
+        it = { id: data.item.id, name: data.item.name || "", callId: data.item.call_id || "", buf: data.item.arguments || "", started: false, order: -1, live: false, flushed: false };
         st.items.set(data.item.id, it);
       } else {
         it.name = it.name || data.item.name || "";
@@ -363,8 +386,8 @@ export function createResponsesToAnthropicStream() {
         it.buf = data.item.arguments ?? it.buf;
       }
       out += startTool(it);
-      // Se os deltas chegaram antes do nome, reemite o buffer agora.
-      if (it.buf && !it.flushed) {
+      // So reemite o buffer se NADA foi transmitido ao vivo (nome chegou tarde).
+      if (it.buf && !it.live && !it.flushed) {
         out += sse("content_block_delta", { type: "content_block_delta", index: it.order, delta: { type: "input_json_delta", partial_json: it.buf } });
       }
       it.flushed = true;

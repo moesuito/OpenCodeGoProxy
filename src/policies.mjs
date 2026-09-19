@@ -7,6 +7,7 @@
 const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh", "max"];
 
 import { reasoningFor, isStrictUpstream } from "./model-meta.mjs";
+import { SLIM_TOOLS } from "./anthropic-bridge.mjs";
 
 function hasInternalRef(obj) {
   return JSON.stringify(obj).includes('"$ref"');
@@ -134,7 +135,12 @@ export function modelPolicy(model, config) {
     // Remove namespaces mcp__codex_apps__* (Gmail/GitHub/Drive...). Ordem:
     // per-model > defaults.stripCodexApps > true nos strict / false nos demais.
     stripCodexApps: per.stripCodexApps ?? config.defaults?.stripCodexApps ?? isStrictUpstream(model),
-    // Bridge /messages -> /chat ("auto": so p/ modelos sem /messages nativo).
+    // Bridge /messages -> /chat: "auto" (so p/ sem /messages nativo), "chat", "responses" ou false.
     bridge: per.bridge ?? config.defaults?.bridge ?? "auto",
+    // Allowlist de tools na bridge (menos schemas = menos confusao + menos cota).
+    // Default: lista enxuta nos strict (Muse), sem filtro nos demais.
+    toolsAllow: per.toolsAllow ?? (isStrictUpstream(model) ? [...SLIM_TOOLS] : undefined),
+    // Nudge anti-"DONE preguiçoso" nos strict (Muse): instrui a sempre agir via tools.
+    nudgeTools: per.nudgeTools ?? isStrictUpstream(model),
   };
 }

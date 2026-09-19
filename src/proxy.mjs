@@ -130,6 +130,15 @@ async function handleBridgedMessages(req, res, aBody, model, policy, reqPath, ta
   const toResponses = target === "responses";
   const upBody =
     toResponses ? translateMessagesToResponses(aBody, policy) : translateMessagesRequest(aBody, policy);
+  if (process.env.OPENCODE_GO_PROXY_DUMP === "1") {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(
+      path.join(DATA_DIR, `dump-${id}-bridge.json`),
+      JSON.stringify({ model, target, toolsIn: (aBody.tools || []).map((t) => t.name), upBody }, null, 1).slice(0, 300000)
+    );
+    console.log(`[dump-bridge] ${id} (${model} -> ${target})`);
+  }
   const wantStream = aBody.stream === true;
   upBody.stream = wantStream;
   if (wantStream && !toResponses) upBody.stream_options = { include_usage: true };

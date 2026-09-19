@@ -41,6 +41,9 @@ npm run proxy
 | `models.<id>.maxOutputTokens` | teto de tokens de saída por request |
 | `models.<id>.maxReasoningEffort` | teto de reasoning (`medium` economiza muito vs `max`) |
 | `models.<id>.stripCodexApps` | remove namespaces `mcp__codex_apps__*` (Gmail/GitHub/Drive). Default true no Muse (fatal), false nos demais. Medido: ~84k input tokens poupados por turno no Muse |
+| `models.<id>.bridge` | `auto` (default), `chat`, `responses` ou `false`. Força o modo da bridge `/messages` |
+| `models.<id>.toolsAllow` | allowlist de tools na bridge. Default nos strict (Muse): Bash, Read, Write, Edit, Glob, Grep, TodoWrite, WebFetch, WebSearch |
+| `models.<id>.nudgeTools` | instrução anti-"DONE preguiçoso" nos strict (Muse): agir via tools sempre |
 | `defaults.*` | padrão para modelos não listados |
 
 Modelos baratos e bons p/ dia a dia: `deepseek-v4.1-flash`, `muse-spark-1.3-contributor`, `glm-5.3-flash`, `mimo-v2.5`.
