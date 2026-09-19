@@ -2,11 +2,16 @@
 // trava de orcamento diario por chave (estimativa local via prices.mjs).
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { estimateUsd } from "./prices.mjs";
+import { resolveConfigPath, dataDirFor } from "./config-path.mjs";
 
-const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const LEDGER = path.join(ROOT, "data", "ledger.json");
+function ledgerPath() {
+  try {
+    return path.join(dataDirFor(resolveConfigPath()), "ledger.json");
+  } catch {
+    return path.join(dataDirFor(path.join(process.cwd(), "config.json")), "ledger.json");
+  }
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -14,15 +19,16 @@ function today() {
 
 export function loadLedger() {
   try {
-    return JSON.parse(fs.readFileSync(LEDGER, "utf8"));
+    return JSON.parse(fs.readFileSync(ledgerPath(), "utf8"));
   } catch {
     return {};
   }
 }
 
 export function saveLedger(l) {
-  fs.mkdirSync(path.dirname(LEDGER), { recursive: true });
-  fs.writeFileSync(LEDGER, JSON.stringify(l, null, 2));
+  const p = ledgerPath();
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(l, null, 2));
 }
 
 export class KeyPool {

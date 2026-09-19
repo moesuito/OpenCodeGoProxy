@@ -19,7 +19,18 @@ let win = null;
 let tray = null;
 
 async function startProxy() {
-  if (!proxyMod) proxyMod = await import("../src/proxy.mjs");
+  if (proxyMod) return;
+  try {
+    proxyMod = await import("../src/proxy.mjs");
+  } catch (e) {
+    console.error("Proxy nao iniciou:", e.message);
+    if (Notification.isSupported()) {
+      new Notification({
+        title: "OpenCodeGoProxy",
+        body: "Configure sua API key no painel e reinicie. (" + e.message + ")",
+      }).show();
+    }
+  }
 }
 
 function openPanel() {

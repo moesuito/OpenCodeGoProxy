@@ -12,15 +12,25 @@ import { fileURLToPath } from "node:url";
 import { KeyPool, loadLedger } from "./keypool.mjs";
 import { sanitizeResponsesBody, modelPolicy } from "./policies.mjs";
 import { estimateUsd } from "./prices.mjs";
+import { resolveConfigPath, dataDirFor } from "./config-path.mjs";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const CONFIG_PATH = path.join(ROOT, "config.json");
-const USAGE_LOG = path.join(ROOT, "data", "usage.jsonl");
+const CONFIG_PATH = resolveConfigPath();
+const DATA_DIR = dataDirFor(CONFIG_PATH);
+const USAGE_LOG = path.join(DATA_DIR, "usage.jsonl");
 
 function loadConfig() {
   if (!fs.existsSync(CONFIG_PATH)) {
-    console.error(`Falta ${CONFIG_PATH}. Copie config.example.json para config.json e preencha suas keys.`);
-    process.exit(1);
+    // Primeira execucao no app instalado: materializa config editavel no APPDATA.
+    const example = path.join(ROOT, "config.example.json");
+    if (CONFIG_PATH !== path.join(ROOT, "config.json") && fs.existsSync(example)) {
+      fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
+      fs.copyFileSync(example, CONFIG_PATH);
+      throw new Error(
+        `Config criado em ${CONFIG_PATH}. Abra o painel, preencha sua(s) API key(s) e reinicie.`
+      );
+    }
+    throw new Error(`Falta ${CONFIG_PATH}. Copie config.example.json para config.json e preencha suas keys.`);
   }
   return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
 }
@@ -32,7 +42,7 @@ const pool = new KeyPool(config.keys);
 let modelsCache = { at: 0, body: null };
 
 function logUsage(entry) {
-  fs.mkdirSync(path.dirname(USAGE_LOG), { recursive: true });
+  fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.appendFileSync(USAGE_LOG, JSON.stringify(entry) + "\n");
 }
 

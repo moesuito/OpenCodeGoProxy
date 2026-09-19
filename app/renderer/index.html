@@ -40,6 +40,16 @@
   <div id="msg"></div>
 
   <section>
+    <h3>Atalhos (usam o proxy — o padrão continua intacto)</h3>
+    <div class="row">
+      <button id="openCodexCli" class="ghost">Abrir Codex CLI (codex-oc)</button>
+      <button id="openCodexApp" class="ghost">Abrir Codex App (proxy)</button>
+      <button id="openClaudeCli" class="ghost">Abrir Claude CLI (claude-oc)</button>
+    </div>
+    <div class="hint">O App fecha o Codex/ChatGPT aberto e reabre no proxy. Abrir pelos ícones normais mantém a autenticação padrão.</div>
+  </section>
+
+  <section>
     <h3>Servidor</h3>
     <label>Porta local</label>
     <input id="port" type="number" />
@@ -71,7 +81,14 @@
 <script>
 const fs = require("node:fs");
 const path = require("node:path");
-const CFG = path.join(__dirname, "..", "..", "config.json");
+const os = require("node:os");
+const { exec } = require("node:child_process");
+function resolveCfg() {
+  const repo = path.join(__dirname, "..", "..", "config.json");
+  if (fs.existsSync(repo)) return repo;
+  return path.join(os.homedir(), "AppData", "Roaming", "OpenCodeGoProxy", "config.json");
+}
+const CFG = resolveCfg();
 const MODELS = JSON.parse(fs.readFileSync(path.join(__dirname, "models.json"), "utf8"));
 const $ = (id) => document.getElementById(id);
 const msg = (t) => ($("msg").textContent = t);
@@ -149,6 +166,16 @@ $("stats").onclick = async () => {
     $("out").textContent = JSON.stringify(await r.json(), null, 2);
   } catch (e) { $("out").textContent = "Proxy fora do ar? " + e.message; }
 };
+
+function launch(cmd, label) {
+  exec(`start "${label}" ${cmd}`, (err) => {
+    if (err) msg("Falha ao abrir: " + err.message);
+    else msg(label + " abrindo…");
+  });
+}
+$("openCodexCli").onclick = () => launch("codex-oc", "Codex via proxy");
+$("openCodexApp").onclick = () => launch("codex-oc-app", "Codex App via proxy");
+$("openClaudeCli").onclick = () => launch("claude-oc", "Claude via proxy");
 
 load();
 setInterval(refreshStatus, 5000);
