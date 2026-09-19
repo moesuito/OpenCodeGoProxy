@@ -81,9 +81,15 @@ function setupShims(catalogPath) {
     "codex-oc.cmd",
     `@echo off\r\nREM Codex CLI via proxy OpenCodeGoProxy (nao altera o padrao)\r\n${HEALTH_CHECK}codex --profile opencode-go-proxy %*\r\n`
   );
+  // O App Desktop ignora overrides -c no picker: precisa do proxy no config BASE.
+  // app-activate.mjs faz isso com backup (reversivel via app-restore).
   writeShim(
     "codex-oc-app.cmd",
-    `@echo off\r\nREM Fecha Codex/ChatGPT abertos e abre o Desktop App no proxy\r\n${HEALTH_CHECK}taskkill /F /IM Codex.exe 2>NUL\r\ntaskkill /F /IM ChatGPT.exe 2>NUL\r\ntimeout /t 2 /nobreak >NUL\r\ncodex app -c "model_provider='opencode_go_proxy'" -c "model='${MODEL}'" -c "model_catalog_json='${catalogPath}'" %*\r\n`
+    `@echo off\r\nREM Codex Desktop App via proxy (altera o padrao COM backup; reverta com codex-oc-app-restore)\r\n${HEALTH_CHECK}node "${path.join(ROOT, "src", "app-activate.mjs")}" --model ${MODEL}\r\ntaskkill /F /IM Codex.exe 2>NUL\r\ntaskkill /F /IM ChatGPT.exe 2>NUL\r\ntimeout /t 2 /nobreak >NUL\r\ncodex app %*\r\n`
+  );
+  writeShim(
+    "codex-oc-app-restore.cmd",
+    `@echo off\r\nREM Volta o config padrao anterior ao codex-oc-app\r\nnode "${path.join(ROOT, "src", "app-restore.mjs")}"\r\n`
   );
   writeShim(
     "claude-oc.cmd",
