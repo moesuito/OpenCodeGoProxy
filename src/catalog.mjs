@@ -7,7 +7,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const { displayName, reasoningFor, isStrictUpstream } = await import("./model-meta.mjs");
+const { displayName, reasoningFor, isStrictUpstream, UNAVAILABLE } = await import("./model-meta.mjs");
 const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "config.json"), "utf8"));
 const UPSTREAM = (cfg.upstream || "https://opencode.ai/zen/go/v1").replace(/\/$/, "");
 const KEY = cfg.keys?.find((k) => k.key && !k.key.includes("COLE"))?.key || process.env.OPENCODE_API_KEY;
@@ -69,12 +69,15 @@ async function main() {
   if (!r.ok) throw new Error(`models -> ${r.status}`);
   const j = await r.json();
   const ids = (j.data || j.models || []).map((m) => m.id || m).filter(Boolean);
-  const catalog = { models: ids.map(entryFor) };
+  const skipped = ids.filter((id) => UNAVAILABLE.includes(id));
+  const live = ids.filter((id) => !UNAVAILABLE.includes(id));
+  if (skipped.length) console.error(`excluidos (upstream indisponivel): ${skipped.join(", ")}`);
+  const catalog = { models: live.map(entryFor) };
   const out = JSON.stringify(catalog, null, 2) + "\n";
   const i = process.argv.indexOf("--write");
   if (i >= 0 && process.argv[i + 1]) {
     fs.writeFileSync(process.argv[i + 1], out);
-    console.log(`catalogo com ${ids.length} modelos -> ${process.argv[i + 1]}`);
+    console.log(`catalogo com ${live.length} modelos -> ${process.argv[i + 1]}`);
   } else {
     console.log(out);
   }

@@ -55,6 +55,19 @@ const STRICT_RES = [/^muse-spark-.+/];
 export function isStrictUpstream(id) {
   return STRICT_RES.some((re) => re.test(id));
 }
+
+// Validados em 2026-09-19: listados no /models mas o upstream responde
+// "Model is unavailable" (versoes superadas). Excluidos do catalogo gerado;
+// para reativar, remova da lista (pode ser indisponibilidade temporaria).
+export const UNAVAILABLE = [
+  "kimi-k2.5",
+  "glm-5",
+  "mimo-v2-pro",
+  "mimo-v2-omni",
+  "hy3-preview",
+  "grok-4.5",
+  "qwen3.5-plus",
+];
 const DEEPSEEK = ["deepseek-v4.1-flash", "deepseek-v4-pro", "deepseek-v4-flash", "deepseek-flash", "deepseek-v4-flash-vision-exp"];
 const KIMI_K3 = ["kimi-k3"];
 const GLM = ["glm-5.3-flash", "glm-5.3", "glm-5.2", "glm-5.1", "glm-5"];

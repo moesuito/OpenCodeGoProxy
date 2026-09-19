@@ -131,8 +131,8 @@ export function modelPolicy(model, config) {
     enabled: per.enabled !== false,
     maxOutputTokens: per.maxOutputTokens ?? config.defaults?.maxOutputTokens ?? 8192,
     maxReasoningEffort: per.maxReasoningEffort ?? config.defaults?.maxReasoningEffort ?? "high",
-    // Remove namespaces mcp__codex_apps__* (Gmail/GitHub/Drive...). Default: true
-    // nos upstreams strict (Muse: fatal), false nos demais (funcionam, mas gastam input).
-    stripCodexApps: per.stripCodexApps ?? isStrictUpstream(model),
+    // Remove namespaces mcp__codex_apps__* (Gmail/GitHub/Drive...). Ordem:
+    // per-model > defaults.stripCodexApps > true nos strict / false nos demais.
+    stripCodexApps: per.stripCodexApps ?? config.defaults?.stripCodexApps ?? isStrictUpstream(model),
   };
 }
