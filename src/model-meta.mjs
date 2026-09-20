@@ -122,9 +122,9 @@ const GLM = ["glm-5.3-flash", "glm-5.3", "glm-5.2", "glm-5.1", "glm-5"];
 function threeSlot(off, mid, top, midLabel) {
   return {
     levels: [
-      { effort: "low", description: `Desligado / direto (${off})` },
-      { effort: "medium", description: midLabel || `Raciocinio intermediario (${mid})` },
-      { effort: "high", description: `Raciocinio maximo (${top})` },
+      { effort: "low", description: `Off / direct (${off})` },
+      { effort: "medium", description: midLabel || `Mid reasoning (${mid})` },
+      { effort: "high", description: `Max reasoning (${top})` },
     ],
     map: { low: off, medium: mid, high: top, xhigh: top, max: top },
     def: "medium",
@@ -134,9 +134,9 @@ function threeSlot(off, mid, top, midLabel) {
 function passthrough(def = "medium") {
   return {
     levels: [
-      { effort: "low", description: "Respostas rapidas, raciocinio leve" },
-      { effort: "medium", description: "Equilibrio entre velocidade e profundidade" },
-      { effort: "high", description: "Raciocinio profundo p/ problemas complexos" },
+      { effort: "low", description: "Fast answers, light reasoning" },
+      { effort: "medium", description: "Balance of speed and depth" },
+      { effort: "high", description: "Deep reasoning for complex problems" },
     ],
     map: {},
     def,

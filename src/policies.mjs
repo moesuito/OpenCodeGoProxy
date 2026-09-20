@@ -2,7 +2,7 @@
 // Motivacao real: o upstream do Muse Spark (Console Go/Meta) rejeita
 // schemas JSON recursivos ($ref ciclico, ex: GmailMessagePartRequest das
 // tools do Gmail no Codex) e tools do tipo `custom` (apply_patch freeform).
-// Outros upstreams (DeepSeek etc.) toleram — por isso funcionam direto.
+// Other upstreams (DeepSeek etc.) tolerate them — hence they work directly.
 
 const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh", "max"];
 
@@ -28,7 +28,7 @@ function isRecursiveSchema(params) {
     const def = defs[name];
     if (def && JSON.stringify(def).includes("$ref")) return true;
   }
-  // Mesmo sem provar o ciclo, $ref interno ja quebra o Console Go — remove.
+  // Even without proving the cycle, an internal $ref already breaks Console Go — drop it.
   return true;
 }
 
@@ -95,7 +95,7 @@ function sanitizeTools(tools, model, opts = {}) {
   return { tools: out, dropped, droppedChars };
 }
 
-// Endpoint nativo de cada modelo na doc do Go (responses | chat | messages).
+// Native endpoint per model per the Go docs (responses | chat | messages).
 export function nativeEndpoint(model) {
   if (/^(muse-spark-.+|gpt-5.6-luna|grok-.+)$/.test(model)) return "responses";
   if (/^(minimax-.+|qwen3\..+)$/.test(model)) return "messages";
@@ -112,7 +112,7 @@ export function sanitizeResponsesBody(body, model, policy) {
     out.max_output_tokens = Math.min(out.max_output_tokens, policy.maxOutputTokens);
   }
   if (out.reasoning) {
-    // Traduz o slot do Codex p/ o effort nativo do modelo (ex: low -> none no DeepSeek).
+    // Translate the Codex slot to the model's native effort (e.g. low -> none on DeepSeek).
     const map = reasoningFor(model).map;
     let effort = out.reasoning.effort;
     if (map[effort]) effort = map[effort];
@@ -132,17 +132,17 @@ export function modelPolicy(model, config) {
     enabled: per.enabled !== false,
     maxOutputTokens: per.maxOutputTokens ?? config.defaults?.maxOutputTokens ?? 8192,
     maxReasoningEffort: per.maxReasoningEffort ?? config.defaults?.maxReasoningEffort ?? "high",
-    // Remove namespaces mcp__codex_apps__* (Gmail/GitHub/Drive...). Ordem:
-    // per-model > defaults.stripCodexApps > true nos strict / false nos demais.
+    // Drop mcp__codex_apps__* namespaces (Gmail/GitHub/Drive...). Order:
+    // per-model > defaults.stripCodexApps > true on strict / false elsewhere.
     stripCodexApps: per.stripCodexApps ?? config.defaults?.stripCodexApps ?? isStrictUpstream(model),
-    // Bridge /messages -> /chat: "auto" (so p/ sem /messages nativo), "chat", "responses" ou false.
+    // Bridge /messages -> /chat: "auto" (only w/o native /messages), "chat", "responses" or false.
     bridge: per.bridge ?? config.defaults?.bridge ?? "auto",
-    // Allowlist de tools na bridge (menos schemas = menos confusao + menos cota).
-    // Default: lista enxuta nos strict (Muse), sem filtro nos demais.
+    // Tool allowlist on the bridge (fewer schemas = less confusion + less quota).
+    // Default: slim list on strict (Muse), no filter elsewhere.
     toolsAllow: per.toolsAllow ?? (isStrictUpstream(model) ? [...SLIM_TOOLS] : undefined),
-    // Nudge anti-"DONE preguiçoso" nos strict (Muse): instrui a sempre agir via tools.
+    // Anti-"lazy DONE" nudge on strict upstreams (Muse): always act via tools.
     nudgeTools: per.nudgeTools ?? isStrictUpstream(model),
-    // Vision decoder: "auto" (so p/ comprovadamente cegos), true/false.
+    // Vision decoder: "auto" (only proven-blind), true/false.
     vision: per.vision ?? config.defaults?.vision ?? "auto",
   };
 }

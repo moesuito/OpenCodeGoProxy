@@ -1,7 +1,7 @@
 // Bridge Anthropic Messages -> OpenAI Chat Completions (+ volta).
-// Para modelos cujo endpoint nativo NAO e /messages (GLM, Kimi 2.x, MiMo,
+// For models whose native endpoint is NOT /messages (GLM, Kimi 2.x, MiMo,
 // Hy, Muse, GPT Luna, Omen...). Inspirado no transformer do oc-go-cc
-// (BindingOx, MIT) — implementacao propria, zero-deps.
+// (BindingOx, MIT) — own implementation, zero-deps.
 // Modelos ja validados direto no /messages (passthrough, sem bridge):
 export const PASSTHROUGH_MESSAGES = new Set([
   "deepseek-v4.1-flash",

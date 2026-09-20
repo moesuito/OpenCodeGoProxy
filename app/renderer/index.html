@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <title>OpenCodeGoProxy</title>
@@ -59,7 +59,7 @@
     </div>
     <div class="row" id="tiersRow" style="display:none">
       <div style="width:100%">
-        <div class="s" style="margin-bottom:6px">Modelos por tier (valem nos dois profiles)</div>
+        <div class="s" style="margin-bottom:6px">Models per tier (both profiles)</div>
         <div style="display:flex;gap:8px">
           <div style="flex:1"><div class="s">Opus</div><select id="tierOpus" style="width:100%"></select></div>
           <div style="flex:1"><div class="s">Sonnet</div><select id="tierSonnet" style="width:100%"></select></div>
@@ -70,23 +70,23 @@
   </section>
 
   <section>
-    <h2>API keys do OpenCode Go</h2>
-    <textarea id="keys" placeholder="Uma por linha: nome|sk-...|orcamento_diario_usd"></textarea>
+    <h2>OpenCode Go API keys</h2>
+    <textarea id="keys" placeholder="One per line: name|sk-...|daily_budget_usd"></textarea>
     <div class="hint" id="savedKeys"></div>
-    <button class="act" id="saveKeys">Salvar keys</button>
+    <button class="act" id="saveKeys">Save keys</button>
   </section>
 
   <section>
-    <h2>Visão (legenda p/ modelos cegos)</h2>
+    <h2>Vision (captions for blind models)</h2>
     <select id="visionModel" style="width:100%"></select>
-    <div class="hint">Só modelos com visão nativa. Vale após reiniciar o proxy.</div>
+    <div class="hint">Native-vision models only. Applies after proxy restart.</div>
   </section>
 
   <section>
-    <h2>Sistema</h2>
-    <label class="ck"><input type="checkbox" id="autoStart" /> Iniciar com o Windows <span class="hint" id="autoStartState"></span></label>
-    <label class="ck"><input type="checkbox" id="startMinimized" /> Iniciar minimizado</label>
-    <button class="act ghost" id="saveSystem">Salvar sistema</button>
+    <h2>System</h2>
+    <label class="ck"><input type="checkbox" id="autoStart" /> Start with Windows <span class="hint" id="autoStartState"></span></label>
+    <label class="ck"><input type="checkbox" id="startMinimized" /> Start minimized</label>
+    <button class="act ghost" id="saveSystem">Save system</button>
   </section>
 </main>
 <script>
@@ -117,7 +117,7 @@ async function refreshProfiles() {
     const st = await call("codexState");
     const on = st.active === "proxy";
     paintToggle($("cxToggle"), on);
-    $("cxInfo").textContent = `${st.model || "?"} · ${st.provider || "openai (padrão)"}`;
+    $("cxInfo").textContent = `${st.model || "?"} · ${st.provider || "openai (default)"}`;
   } catch (e) {
     $("cxToggle").disabled = true;
     $("cxInfo").textContent = String((e && e.message) || e).slice(0, 100);
@@ -149,7 +149,7 @@ async function refreshTiers() {
       }
     }
     $("tiersRow").style.display = "";
-  } catch (e) { /* sem tiers */ }
+  } catch (e) { /* no tiers */ }
 }
 
 for (const sel of ["tierOpus", "tierSonnet", "tierHaiku"]) {
@@ -158,9 +158,9 @@ for (const sel of ["tierOpus", "tierSonnet", "tierHaiku"]) {
       await call("claudeTiersSet", {
         opus: $("tierOpus").value, sonnet: $("tierSonnet").value, haiku: $("tierHaiku").value,
       });
-      msg("Modelos Claude salvos. Vale em novas sessões.");
+      msg("Claude models saved. Applies to new sessions.");
       refreshProfiles();
-    } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
+    } catch (e) { msg("Error: " + ((e && e.message) || e)); }
   };
 }
 
@@ -169,17 +169,17 @@ async function refreshSystem() {
     const { settings, autoStartReal } = await call("sysGet");
     $("autoStart").checked = !!settings.autoStart;
     $("startMinimized").checked = settings.startMinimized !== false;
-    $("autoStartState").textContent = autoStartReal ? "(ativo)" : "";
-  } catch (e) { /* sem sistema */ }
+    $("autoStartState").textContent = autoStartReal ? "(on)" : "";
+  } catch (e) { /* no system */ }
 }
 
 async function load() {
   try {
     const k = await call("keysGet");
     PORT = k.port || 11447;
-    $("savedKeys").textContent = "Salvas: " + (k.keys.map((x) => `${x.name} (${x.masked})`).join(" · ") || "nenhuma");
+    $("savedKeys").textContent = "Saved: " + (k.keys.map((x) => `${x.name} (${x.masked})`).join(" · ") || "none");
     $("keys").value = "";
-  } catch (e) { msg("Falha ao ler config: " + ((e && e.message) || e)); }
+  } catch (e) { msg("Failed to read config: " + ((e && e.message) || e)); }
   try {
     const v = await call("visionModels");
     const el = $("visionModel");
@@ -187,17 +187,17 @@ async function load() {
     for (const m of v.models) {
       const o = document.createElement("option");
       o.value = m.id;
-      o.textContent = `${m.name} ($${m.in}/$${m.out} por 1M)`;
+      o.textContent = `${m.name} ($${m.in}/$${m.out} per 1M)`;
       if (m.id === v.current) o.selected = true;
       el.appendChild(o);
     }
     el.onchange = async () => {
       try {
         await call("visionSet", { model: el.value });
-        msg("Modelo de visão salvo. Reinicie pelo tray.");
-      } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
+        msg("Vision model saved. Restart via tray.");
+      } catch (e) { msg("Error: " + ((e && e.message) || e)); }
     };
-  } catch (e) { /* sem visao */ }
+  } catch (e) { /* no vision */ }
   refreshStatus();
   refreshProfiles();
   refreshSystem();
@@ -207,20 +207,20 @@ $("cxToggle").onchange = async () => {
   $("cxToggle").disabled = true;
   try {
     const r = await call("codexToggle");
-    if (r && r.restored === false) msg("Não voltou ao normal: " + (r.reason || "?"));
-    else msg("Codex atualizado. Reabra CLI/App.");
+    if (r && r.restored === false) msg("Did not switch back: " + (r.reason || "?"));
+    else msg("Codex updated. Reopen CLI/App.");
     refreshProfiles();
-  } catch (e) { msg("Erro: " + ((e && e.message) || e)); refreshProfiles(); }
+  } catch (e) { msg("Error: " + ((e && e.message) || e)); refreshProfiles(); }
 };
 
 $("clToggle").onchange = async () => {
   $("clToggle").disabled = true;
   try {
     const r = await call("claudeToggle");
-    if (r && r.restored === false) msg("Não voltou ao normal: " + (r.reason || "?"));
-    else msg("Claude atualizado. Novas sessões usam o profile ativo.");
+    if (r && r.restored === false) msg("Did not switch back: " + (r.reason || "?"));
+    else msg("Claude updated. New sessions use the active profile.");
     refreshProfiles();
-  } catch (e) { msg("Erro: " + ((e && e.message) || e)); refreshProfiles(); }
+  } catch (e) { msg("Error: " + ((e && e.message) || e)); refreshProfiles(); }
 };
 
 $("saveKeys").onclick = async () => {
@@ -228,16 +228,16 @@ $("saveKeys").onclick = async () => {
     const r = await call("keysSave", { text: $("keys").value });
     $("keys").value = "";
     load();
-    msg(`Keys salvas (${r.saved}). Reinicie pelo tray.`);
-  } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
+    msg(`Keys saved (${r.saved}). Restart via tray.`);
+  } catch (e) { msg("Error: " + ((e && e.message) || e)); }
 };
 
 $("saveSystem").onclick = async () => {
   try {
     await call("sysSave", { autoStart: $("autoStart").checked, startMinimized: $("startMinimized").checked, exePath: process.execPath });
-    msg("Sistema salvo.");
+    msg("System saved.");
     refreshSystem();
-  } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
+  } catch (e) { msg("Error: " + ((e && e.message) || e)); }
 };
 
 load();

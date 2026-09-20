@@ -16,5 +16,6 @@
     "kimi-k3": { "maxReasoningEffort": "medium" },
     "qwen3.8-max": { "enabled": true, "maxOutputTokens": 4096 }
   },
-  "_comentario_stripCodexApps": "models.<id>.stripCodexApps remove os namespaces mcp__codex_apps__* (Gmail/GitHub/Drive). Default true no Muse (fatal), false nos demais. Ex: deepseek com strip: { \"deepseek-v4.1-flash\": { \"stripCodexApps\": true } }"
+  "_comment_stripCodexApps": "models.<id>.stripCodexApps drops mcp__codex_apps__* namespaces (Gmail/GitHub/Drive). Default true on Muse (fatal), false elsewhere. E.g. deepseek with strip: { \"deepseek-v4.1-flash\": { \"stripCodexApps\": true } }",
+  "_comment_note": "Copy to config.json and fill in your OpenCode Go key(s). config.json is gitignored."
 }

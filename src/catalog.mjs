@@ -72,7 +72,7 @@ export async function generateCatalog(dest, key) {
   const cfg = readCfg();
   const UPSTREAM = (cfg.upstream || "https://opencode.ai/zen/go/v1").replace(/\/$/, "");
   const k = key || cfg.keys?.find((x) => x.key && !x.key.includes("COLE"))?.key || process.env.OPENCODE_API_KEY;
-  if (!k) throw new Error("Sem API key: preencha config.json ou OPENCODE_API_KEY.");
+  if (!k) throw new Error("No API key: fill config.json or OPENCODE_API_KEY.");
   const r = await fetch(UPSTREAM + "/models", {
     headers: { authorization: `Bearer ${k}`, "user-agent": "OpenCodeGoProxy/0.1.0" },
   });
@@ -91,7 +91,7 @@ async function main() {
   const i = process.argv.indexOf("--write");
   if (i >= 0 && process.argv[i + 1]) {
     const r = await generateCatalog(process.argv[i + 1]);
-    if (r.skipped.length) console.error(`excluidos (upstream indisponivel): ${r.skipped.join(", ")}`);
+    if (r.skipped.length) console.error(`excluded (upstream unavailable): ${r.skipped.join(", ")}`);
     console.log(`catalogo com ${r.total} modelos -> ${r.dest}`);
   } else {
     const r = await generateCatalog(process.argv[i + 1] || path.join(ROOT, "catalog.out.json"));

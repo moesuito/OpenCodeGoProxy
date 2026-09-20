@@ -1,5 +1,5 @@
 // Setup inicial: provider + catalogo + profile --profile (opcional p/ CLI).
-// A troca Normal <-> Proxy e feita no painel GUI (secao Profiles, com backup).
+// Normal <-> Proxy switching happens in the GUI panel (Profiles section, with backup).
 // Uso: node src/setup.mjs [--port 11447] [--model deepseek-v4.1-flash] [--claude-model minimax-m2.7]
 import fs from "node:fs";
 import os from "node:os";
@@ -37,9 +37,9 @@ function ensureCodexProvider() {
     if (toml.length && !toml.endsWith("\n")) toml += "\n";
     toml += `\n[model_providers.opencode_go_proxy]\nname = "OpenCodeGoProxy"\nbase_url = "http://127.0.0.1:${PORT}"\nenv_key = "OPENCODE_GO_PROXY_KEY"\nwire_api = "responses"\n`;
     fs.writeFileSync(cfgPath, toml);
-    console.log("[codex] provider opencode_go_proxy adicionado (append, padrao intacto)");
+    console.log("[codex] provider opencode_go_proxy added (append, defaults intact)");
   } else {
-    console.log("[codex] provider opencode_go_proxy ja existe — nada a fazer");
+    console.log("[codex] provider opencode_go_proxy already exists — nothing to do");
   }
 }
 
@@ -57,7 +57,7 @@ function writeProfile(catalogPath) {
     dest,
     `model = "${MODEL}"\nmodel_provider = "opencode_go_proxy"\nmodel_catalog_json = '${catalogPath}'\nmodel_reasoning_effort = "medium"\nmodel_reasoning_summary = "none"\n`
   );
-  console.log(`[codex] profile secundario -> ${dest}`);
+  console.log(`[codex] secondary profile -> ${dest}`);
 }
 
 function writeShim(name, content) {
@@ -86,5 +86,5 @@ ensureCodexProvider();
 const catalogPath = writeCatalog();
 writeProfile(catalogPath);
 setupShims(catalogPath);
-console.log("\nPronto. Troque de profile pelo painel do app (secao Profiles).");
-console.log('Env do proxy (qualquer valor): setx OPENCODE_GO_PROXY_KEY "local"');
+console.log("\nDone. Switch profiles from the app panel (Profiles section).");
+console.log('Proxy env (any value): setx OPENCODE_GO_PROXY_KEY "local"');

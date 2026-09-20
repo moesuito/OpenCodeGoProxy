@@ -72,7 +72,7 @@ export const DEFAULT_TIERS = {
 export function activateProxy({ dir, port, tiers } = {}) {
   const d = dir || claudeDir();
   const p = settingsPath(d);
-  if (!fs.existsSync(p)) throw new Error("settings.json do Claude nao encontrado");
+  if (!fs.existsSync(p)) throw new Error("Claude settings.json not found");
   const st = getClaudeState(d, port);
   if (st.active === "proxy") return { already: true, ...st };
   backup(p, d);
@@ -105,7 +105,7 @@ export function activateProxy({ dir, port, tiers } = {}) {
 export function restoreNormal({ dir } = {}) {
   const d = dir || claudeDir();
   const prev = prevPath(d);
-  if (!fs.existsSync(prev)) return { restored: false, reason: "sem backup pre-oc-gui" };
+  if (!fs.existsSync(prev)) return { restored: false, reason: "no pre-oc-gui backup" };
   backup(settingsPath(d), d);
   fs.copyFileSync(prev, settingsPath(d));
   return { restored: true, ...getClaudeState(d) };

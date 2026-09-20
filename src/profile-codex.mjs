@@ -78,7 +78,7 @@ export function activateProxy({ home, model, catalogPath, port } = {}) {
 export function restoreNormal({ home } = {}) {
   const h = home || codexHome();
   const prev = fs.existsSync(prevPath(h)) ? prevPath(h) : legacyPrevPath(h);
-  if (!fs.existsSync(prev)) return { restored: false, reason: "sem backup (pre-oc-gui / pre-oc-proxy)" };
+  if (!fs.existsSync(prev)) return { restored: false, reason: "no backup (pre-oc-gui / pre-oc-proxy)" };
   backup(cfgPath(h), h);
   fs.copyFileSync(prev, cfgPath(h));
   // Normaliza: migra backup legado p/ o nome atual.

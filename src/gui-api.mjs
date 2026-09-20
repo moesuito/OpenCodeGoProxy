@@ -67,7 +67,7 @@ export const api = {
   },
 
   visionSet: async ({ model } = {}) => {
-    if (!model) throw new Error("Escolha um modelo.");
+    if (!model) throw new Error("Pick a model.");
     writeProxyConfig({ visionModel: model });
     return { ok: true, model };
   },
@@ -117,10 +117,10 @@ export const api = {
 
   keysSave: async ({ text } = {}) => {
     const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
-    if (!lines.length) throw new Error("Cole ao menos uma key.");
+    if (!lines.length) throw new Error("Paste at least one key.");
     const keys = lines.map((l) => {
       const [name, key, day] = l.split("|");
-      if (!name?.trim() || !key?.trim()) throw new Error(`Linha invalida (use nome|sk-...|orcamento): ${l.slice(0, 40)}`);
+      if (!name?.trim() || !key?.trim()) throw new Error(`Invalid line (use name|sk-...|budget): ${l.slice(0, 40)}`);
       return { name: name.trim(), key: key.trim(), dayBudgetUsd: day ? parseFloat(day) : undefined };
     });
     writeProxyConfig({ keys });

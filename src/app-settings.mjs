@@ -45,13 +45,13 @@ export async function isAutoStart() {
 }
 
 export async function setAutoStart(on, exePath, minimized) {
-  if (process.platform !== "win32") throw new Error("autostart suportado so no Windows");
+  if (process.platform !== "win32") throw new Error("autostart supported on Windows only");
   if (!on) {
     await reg(["delete", RUN_KEY, "/v", VALUE, "/f"]);
     return false;
   }
   const target = minimized ? `"${exePath}" --minimized` : `"${exePath}"`;
   const r = await reg(["add", RUN_KEY, "/v", VALUE, "/t", "REG_SZ", "/d", target, "/f"]);
-  if (!r.ok) throw new Error("falha ao registrar autostart");
+  if (!r.ok) throw new Error("failed to register autostart");
   return true;
 }

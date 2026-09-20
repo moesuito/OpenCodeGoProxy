@@ -35,7 +35,7 @@ export class KeyPool {
   constructor(keys) {
     this.keys = (keys || []).filter((k) => k.key && k.enabled !== false);
     this.idx = 0;
-    if (this.keys.length === 0) throw new Error("Nenhuma API key configurada (config.json > keys).");
+    if (this.keys.length === 0) throw new Error("No API keys configured (config.json > keys).");
   }
 
   ledger() {

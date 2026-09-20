@@ -1,5 +1,5 @@
-// Precos por 1M tokens (pico) + limite mensal. Fonte: https://opencode.ai/docs/go/
-// Estimativas de custo locais — o console oficial (opencode.ai/auth) vale como verdade.
+// Prices per 1M tokens (peak) + monthly limit. Source: https://opencode.ai/docs/go/
+// Local cost estimates — the official console (opencode.ai/auth) is the source of truth.
 export const PRICES = {
   "muse-spark-1.3-contributor": { in: 0.10, out: 0.20, monthly: 60 },
   "muse-spark-1.2-contributor": { in: 0.10, out: 0.20, monthly: 60 },

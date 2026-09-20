@@ -1,6 +1,6 @@
-// Image decoder: modelos comprovadamente cegos recebem a legenda textual
+// Image decoder: proven-blind models get the textual caption
 // da imagem (gerada pelo vision model) no lugar do bloco de imagem.
-// Evidencia (quiz "letra S", 2026-09-19):
+// Evidence ("S" quiz, 2026-09-19):
 //   VEM de fabrica: vision-exp, glm-5.3-flash, deepseek-v4.1-flash,
 //     deepseek-v4-pro, gpt-5.6-luna, kimi-k3, mimo-v2.5, minimax-*, qwen*
 //   CEGOS: muse-spark-1.2/1.3 (queima budget sem responder), kimi-k2.6 (vazio),
@@ -34,14 +34,14 @@ export const VISION_MODELS = [
   { id: "kimi-k3", name: "Kimi K3", in: 3.0, out: 15.0 },
   { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", in: 0.2, out: 1.2 },
 ];
-// Chain: o selecionado primeiro, depois os demais (baratos antes do Kimi).
+// Chain: selected first, then the rest (cheap ones before Kimi).
 export function buildChain(primary) {
   const first = primary || DEFAULT_VISION_MODEL;
   return [first, ...VISION_MODELS.map((m) => m.id).filter((id) => id !== first)];
 }
 
 export const VISION_UNAVAILABLE_TEXT =
-  "anexo de imagem indisponivel para analise automatica — peca ao usuario que descreva o conteudo";
+  "attached image unavailable for automatic analysis — ask the user to describe its contents";
 
 // System prompt do legendador: ele e os OLHOS de um agente de codigo.
 // A legenda precisa ser acionavel: textos exatos, elementos, estados, layout.

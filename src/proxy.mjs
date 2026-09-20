@@ -68,7 +68,7 @@ function readBody(req) {
   });
 }
 
-// Extrai usage de JSON final ou de SSE (melhor esforço, últimos 64KB).
+// Extract usage from final JSON or SSE (best effort, last 64KB).
 function extractUsage(buf, model) {
   const tail = buf.slice(-65536).toString("utf8");
   const pick = (re) => {
@@ -118,7 +118,7 @@ async function forward(upPath, clientBody, clientHeaders, opts = {}) {
       if ((res.status === 429 || res.status >= 500) && pool.next(tried)) {
         if (res.status === 429) sawUpstream429 = true;
         pool.advance();
-        lastErr = `upstream ${res.status}, tentando proxima key`;
+        lastErr = `upstream ${res.status}, trying next key`;
         continue;
       }
       return { res, entry };
@@ -129,7 +129,7 @@ async function forward(upPath, clientBody, clientHeaders, opts = {}) {
   }
   // 429 so quando TODAS zeraram (upstream 429 ou todas estouraram o budget local).
   const allOverBudget = pool.keys.length > 0 && pool.keys.every((k) => pool.overBudget(k));
-  throw Object.assign(new Error(lastErr || "sem keys disponiveis (orcamento esgotado?)"), {
+  throw Object.assign(new Error(lastErr || "no keys available (budget exhausted?)"), {
     status: sawUpstream429 || allOverBudget ? 429 : 502,
   });
 }
@@ -159,14 +159,14 @@ async function decodeImages(body, model, policy) {
       } else {
         // Tudo falhou: marcador honesto em vez de vazio (vazio alimenta alucinacao).
         replaceWithCaption(f, VISION_UNAVAILABLE_TEXT, n + 1);
-        console.log(`[vision] ${model}: legenda falhou em toda a chain; marcador honesto aplicado`);
+        console.log(`[vision] ${model}: caption failed across the whole chain; honest marker applied`);
       }
       n++;
     } catch (e) {
-      console.log(`[vision] legenda falhou (${model}): ${e.message}`);
+      console.log(`[vision] caption failed (${model}): ${e.message}`);
     }
   }
-  if (n) console.log(`[vision] ${model}: ${n} imagem(ns) legendada(s) via ${vModel} ($${cost.toFixed(6)})`);
+  if (n) console.log(`[vision] ${model}: ${n} image(s) captioned via ${vModel} ($${cost.toFixed(6)})`);
   return { decoded: n, captionCost: cost };
 }
 
@@ -283,7 +283,7 @@ export const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ ledger: loadLedger(), prices: "ver src/prices.mjs; console oficial vale como verdade" }));
       return;
     }
-    // Aceita com ou sem prefixo /v1 (Codex usa base_url + /responses direto).
+    // Accept with or without the /v1 prefix (Codex uses base_url + /responses directly).
     const p = url.pathname.replace(/^\/v1\//, "/");
     if (req.method === "GET" && (p === "/models" || url.pathname === "/v1/models")) {
       if (Date.now() - modelsCache.at < 3600e3 && modelsCache.body) {
@@ -308,14 +308,14 @@ export const server = http.createServer(async (req, res) => {
         body = JSON.parse(raw.toString("utf8") || "{}");
       } catch {
         res.writeHead(400, { "content-type": "application/json" });
-        res.end(JSON.stringify({ error: "body precisa ser JSON" }));
+        res.end(JSON.stringify({ error: "body must be JSON" }));
         return;
       }
       const model = body.model || "";
       const policy = modelPolicy(model, config);
       if (!policy.enabled) {
         res.writeHead(403, { "content-type": "application/json" });
-        res.end(JSON.stringify({ error: `modelo ${model} desabilitado no config.json (trava de cota)` }));
+        res.end(JSON.stringify({ error: `modelo ${model} disabled in config.json (quota guard)` }));
         return;
       }
       const vision = await decodeImages(body, model, policy);
@@ -366,7 +366,7 @@ export const server = http.createServer(async (req, res) => {
       });
       if (dropped.length)
         console.log(
-          `[${model}] sanitizado (${Math.round(droppedChars / 4)} tokens poupados): ${dropped.join("; ")}`
+          `[${model}] sanitized (${Math.round(droppedChars / 4)} tokens saved): ${dropped.join("; ")}`
         );
       res.writeHead(up.status, {
         "content-type": up.headers.get("content-type") || "application/json",
@@ -379,7 +379,7 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
     res.writeHead(404, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "rota desconhecida" }));
+    res.end(JSON.stringify({ error: "unknown route" }));
   } catch (e) {
     // 429 so quando TODAS as keys zeraram; resto e 502.
     res.writeHead(e.status || 502, { "content-type": "application/json" });
@@ -403,9 +403,9 @@ server.listen(PORT, "127.0.0.1", () => {
 
 server.on("error", (err) => {
   if (err?.code === "EADDRINUSE") {
-    console.error(`Porta ${PORT} ocupada — outra instancia rodando? O proxy NAO iniciou.`);
+    console.error(`Port ${PORT} in use — another instance running? Proxy did NOT start.`);
   } else {
-    console.error("Erro no servidor:", err?.message || err);
+    console.error("Server error:", err?.message || err);
   }
 });
 

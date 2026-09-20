@@ -10,7 +10,7 @@ let electron;
 try {
   electron = await import("electron");
 } catch {
-  console.error("Electron nao instalado. Rode: npm i -D electron");
+  console.error("Electron not installed. Run: npm i -D electron");
   process.exit(1);
 }
 const { app, Tray, Menu, BrowserWindow, Notification, nativeImage, ipcMain } = electron;
@@ -23,7 +23,7 @@ ipcMain.handle("oc:call", async (_event, name, args) => {
 const { loadSettings } = await import("../src/app-settings.mjs");
 
 if (!app.requestSingleInstanceLock()) {
-  console.log("Outra instancia ja esta rodando. Saindo.");
+  console.log("Another instance is already running. Exiting.");
   app.quit();
   process.exit(0);
 }
@@ -45,11 +45,11 @@ async function startProxy() {
   try {
     proxyMod = await import("../src/proxy.mjs");
   } catch (e) {
-    console.error("Proxy nao iniciou:", e.message);
+    console.error("Proxy did not start:", e.message);
     if (Notification.isSupported()) {
       new Notification({
         title: "OpenCodeGoProxy",
-        body: "Configure sua API key no painel e reinicie. (" + e.message + ")",
+        body: "Set your API key in the panel and restart. (" + e.message + ")",
       }).show();
     }
   }
@@ -89,16 +89,16 @@ app.whenReady().then(() => {
   tray.setToolTip("OpenCodeGoProxy");
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Abrir painel", click: openPanel },
+      { label: "Open panel", click: openPanel },
       {
-        label: "Reiniciar app+proxy",
+        label: "Restart app+proxy",
         click: () => {
           app.relaunch();
           app.quit();
         },
       },
       { type: "separator" },
-      { label: "Sair", click: () => app.quit() },
+      { label: "Quit", click: () => app.quit() },
     ])
   );
   tray.on("click", openPanel);
@@ -106,7 +106,7 @@ app.whenReady().then(() => {
   if (!silent) {
     openPanel();
     if (Notification.isSupported()) {
-      new Notification({ title: "OpenCodeGoProxy", body: "Proxy no ar (tray)." }).show();
+      new Notification({ title: "OpenCodeGoProxy", body: "Proxy is up (tray)." }).show();
     }
   }
 });
