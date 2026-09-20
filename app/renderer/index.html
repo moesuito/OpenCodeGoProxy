@@ -77,6 +77,12 @@
   </section>
 
   <section>
+    <h2>Visão (legenda p/ modelos cegos)</h2>
+    <select id="visionModel" style="width:100%"></select>
+    <div class="hint">Só modelos com visão nativa. Vale após reiniciar o proxy.</div>
+  </section>
+
+  <section>
     <h2>Sistema</h2>
     <label class="ck"><input type="checkbox" id="autoStart" /> Iniciar com o Windows <span class="hint" id="autoStartState"></span></label>
     <label class="ck"><input type="checkbox" id="startMinimized" /> Iniciar minimizado</label>
@@ -174,6 +180,24 @@ async function load() {
     $("savedKeys").textContent = "Salvas: " + (k.keys.map((x) => `${x.name} (${x.masked})`).join(" · ") || "nenhuma");
     $("keys").value = "";
   } catch (e) { msg("Falha ao ler config: " + ((e && e.message) || e)); }
+  try {
+    const v = await call("visionModels");
+    const el = $("visionModel");
+    el.innerHTML = "";
+    for (const m of v.models) {
+      const o = document.createElement("option");
+      o.value = m.id;
+      o.textContent = `${m.name} ($${m.in}/$${m.out} por 1M)`;
+      if (m.id === v.current) o.selected = true;
+      el.appendChild(o);
+    }
+    el.onchange = async () => {
+      try {
+        await call("visionSet", { model: el.value });
+        msg("Modelo de visão salvo. Reinicie pelo tray.");
+      } catch (e) { msg("Erro: " + ((e && e.message) || e)); }
+    };
+  } catch (e) { /* sem visao */ }
   refreshStatus();
   refreshProfiles();
   refreshSystem();

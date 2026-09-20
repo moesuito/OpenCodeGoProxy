@@ -1,7 +1,7 @@
 {
   "port": 11447,
   "upstream": "https://opencode.ai/zen/go/v1",
-  "visionModel": "deepseek-v4-flash-vision-exp",
+  "visionModel": "glm-5.3-flash",
   "defaults": {
     "maxOutputTokens": 8192,
     "maxReasoningEffort": "high"

@@ -24,12 +24,21 @@ export const NEEDS_DECODER = new Set([
   "glm-5",
 ]);
 
-export const DEFAULT_VISION_MODEL = "deepseek-v4-flash-vision-exp";
-// Chain barata primeiro: vision-exp (fotos normais) -> glm-5.3-flash ($0.15)
-// -> mimo-v2.5 ($0.14) -> kimi-k3 ($3, ultimo recurso). Testado em 2026-09-20:
-// vision-exp e deepseek-v4.1 queimam reasoning e devolvem vazio em 4000x3000;
-// glm-flash e mimo descrevem; kimi cobre o resto.
-export const DEFAULT_VISION_CHAIN = [DEFAULT_VISION_MODEL, "glm-5.3-flash", "mimo-v2.5", "kimi-k3"];
+export const DEFAULT_VISION_MODEL = "glm-5.3-flash";
+// Modelos com visao nativa comprovada (p/ o seletor da UI). Precos in/out por 1M.
+export const VISION_MODELS = [
+  { id: "glm-5.3-flash", name: "GLM 5.3 Flash", in: 0.15, out: 0.5 },
+  { id: "mimo-v2.5", name: "MiMo V2.5", in: 0.14, out: 0.28 },
+  { id: "deepseek-v4-flash-vision-exp", name: "DeepSeek V4 Flash Vision", in: 0.15, out: 0.6 },
+  { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", in: 0.15, out: 0.6 },
+  { id: "kimi-k3", name: "Kimi K3", in: 3.0, out: 15.0 },
+  { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", in: 0.2, out: 1.2 },
+];
+// Chain: o selecionado primeiro, depois os demais (baratos antes do Kimi).
+export function buildChain(primary) {
+  const first = primary || DEFAULT_VISION_MODEL;
+  return [first, ...VISION_MODELS.map((m) => m.id).filter((id) => id !== first)];
+}
 
 export const VISION_UNAVAILABLE_TEXT =
   "anexo de imagem indisponivel para analise automatica — peca ao usuario que descreva o conteudo";
@@ -106,9 +115,9 @@ export function replaceWithCaption(found, caption, idx) {
 // Legenda via chain de vision models (com cache por hash).
 // Retorna {caption, usage, cached, cost, model, attempts:[{model,input,output}]}.
 // Vazios NUNCA entram no cache. Se tudo falhar, caption = null.
-export async function describeImage(dataUrl, { key, upstream, sessionId, visionModels, maxTokens = 300, dataDir }) {
+export async function describeImage(dataUrl, { key, upstream, sessionId, visionModel, maxTokens = 300, dataDir }) {
   const { estimateUsd } = await import("./prices.mjs");
-  const chain = visionModels?.length ? visionModels : DEFAULT_VISION_CHAIN;
+  const chain = buildChain(visionModel);
   const hash = createHash("sha256").update(dataUrl).digest("hex").slice(0, 32);
   const cache = loadVisionCache(dataDir);
   if (cache[hash]) return { caption: cache[hash], usage: { input: 0, output: 0 }, cached: true, cost: 0, model: chain[0], attempts: [] };

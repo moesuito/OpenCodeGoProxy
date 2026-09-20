@@ -15,6 +15,7 @@ import {
 } from "./app-settings.mjs";
 import { resolveConfigPath } from "./config-path.mjs";
 import { NAMES, UNAVAILABLE } from "./model-meta.mjs";
+import { VISION_MODELS, DEFAULT_VISION_MODEL } from "./vision.mjs";
 
 function proxyConfig() {
   try {
@@ -60,8 +61,18 @@ export const api = {
       .filter(([id]) => !UNAVAILABLE.includes(id))
       .map(([id, name]) => ({ id, name })),
 
-  claudeTiers: async () => {
-    const p = path.join(claudeDir(), "settings.json");
+  visionModels: async () => {
+    const cfg = proxyConfig();
+    return { current: cfg.visionModel || DEFAULT_VISION_MODEL, models: VISION_MODELS };
+  },
+
+  visionSet: async ({ model } = {}) => {
+    if (!model) throw new Error("Escolha um modelo.");
+    writeProxyConfig({ visionModel: model });
+    return { ok: true, model };
+  },
+
+  claudeTiers: async () => {    const p = path.join(claudeDir(), "settings.json");
     const s = JSON.parse(fs.readFileSync(p, "utf8"));
     return {
       opus: s.env?.ANTHROPIC_DEFAULT_OPUS_MODEL || "",

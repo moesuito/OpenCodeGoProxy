@@ -142,7 +142,6 @@ async function decodeImages(body, model, policy) {
   const vEntry = pool.next(new Set());
   if (!vEntry) return { decoded: 0, captionCost: 0 };
   const vModel = config.visionModel || DEFAULT_VISION_MODEL;
-  const vChain = config.visionModels?.length ? config.visionModels : undefined;
   const sessionId = randomUUID();
   let cost = 0;
   let n = 0;
@@ -150,7 +149,7 @@ async function decodeImages(body, model, policy) {
     try {
       const r = await describeImage(dataUrlOf(f), {
         key: vEntry.key, upstream: UPSTREAM, sessionId,
-        visionModel: vModel, visionModels: vChain, dataDir: DATA_DIR,
+        visionModel: vModel, dataDir: DATA_DIR,
       });
       for (const a of r.attempts) pool.record(vEntry, a.model, a.input, a.output);
       if (r.caption) {
