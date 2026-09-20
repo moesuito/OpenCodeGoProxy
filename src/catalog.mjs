@@ -55,7 +55,8 @@ function entryFor(id) {
     auto_compact_token_limit: cx.auto_compact_token_limit,
     effective_context_window_percent: cx.effective_context_window_percent,
     experimental_supported_tools: [],
-    input_modalities: ["text"],
+    // image liberado p/ todos: quem enxerga usa nativo, quem e cego o proxy legenda.
+    input_modalities: ["text", "image"],
     supports_search_tool: false,
     use_responses_lite: false,
     node_repl_auto_review_required: false,
