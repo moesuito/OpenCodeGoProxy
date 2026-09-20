@@ -43,6 +43,17 @@ export function buildChain(primary) {
 export const VISION_UNAVAILABLE_TEXT =
   "anexo de imagem indisponivel para analise automatica — peca ao usuario que descreva o conteudo";
 
+// System prompt do legendador: ele e os OLHOS de um agente de codigo.
+// A legenda precisa ser acionavel: textos exatos, elementos, estados, layout.
+export const CAPTION_PROMPT = `Voce e o modulo de visao de um agente de programacao. O modelo principal NAO ve pixels: sua descricao e TUDO que ele sabera da imagem. Seja fiel e estruturado.
+
+1. Primeiro diga o TIPO: screenshot de interface (app/web/IDE/terminal), foto de erro, trecho de codigo, diagrama/grafico, documento ou foto comum.
+2. INTERFACE: liste elementos interativos visiveis (botoes, campos, menus, abas, checkboxes) com rotulos EXATOS e estado (marcado, desabilitado, selecionado) + posicao aproximada (topo, esquerda, centro...).
+3. ERROS/TERMINAL: transcreva mensagens de erro, codigos, paths de arquivo e stack traces INTEGRALMENTE, sem resumir. Separe o que foi comando digitado do que e saida.
+4. CODIGO: transcreva o trecho fielmente (linguagem, nomes de funcao/variavel).
+5. TEXTO EM GERAL: transcreva literalmente; se algo estiver ilegivel/cortado, diga "ilegivel" em vez de adivinhar. NUNCA invente conteudo.
+6. LAYOUT: descreva organizacao espacial (o que esta ao lado/acima/abaixo do que). Cor so quando relevante.`;
+
 function cachePath(dataDir) {
   return path.join(dataDir, "vision-cache.json");
 }
@@ -134,7 +145,7 @@ export function replaceWithCaption(found, caption, idx) {
 // Legenda via chain de vision models (com cache por hash).
 // Retorna {caption, usage, cached, cost, model, attempts:[{model,input,output}]}.
 // Vazios NUNCA entram no cache. Se tudo falhar, caption = null.
-export async function describeImage(dataUrl, { key, upstream, sessionId, visionModel, maxTokens = 300, dataDir, hint }) {
+export async function describeImage(dataUrl, { key, upstream, sessionId, visionModel, maxTokens = 500, dataDir, hint }) {
   const { estimateUsd } = await import("./prices.mjs");
   const chain = buildChain(visionModel);
   const hash = createHash("sha256").update(dataUrl).digest("hex").slice(0, 32);
@@ -158,7 +169,7 @@ export async function describeImage(dataUrl, { key, upstream, sessionId, visionM
           messages: [{
           role: "user",
           content: [
-            { type: "text", text: "Descreva esta imagem em detalhe, incluindo todo texto, letras, numeros e elementos visuais. Seja objetivo." + (hint ? `\n\nContexto da pergunta do usuario (foque no que e relevante para ela): ${hint}` : "") },
+            { type: "text", text: CAPTION_PROMPT + (hint ? `\n\nContexto da pergunta do usuario (foque no que e relevante para ela): ${hint}` : "") },
             { type: "image_url", image_url: { url: dataUrl } },
           ],
           }],

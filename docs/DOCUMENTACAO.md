@@ -119,10 +119,15 @@ Quiz de controle (letra "S", 2026-09-19):
   GLM-5.3 (rejeita explícito; o Flash vê — nuance importante).
 
 Quando o modelo é comprovadamente cego (`vision: auto`), o proxy envia a
-imagem ao `deepseek-v4-flash-vision-exp`, substitui o bloco por
-`[imagem N: <legenda>]` e segue. Cache por SHA-256 em
-`data/vision-cache.json` (repetir sai de graça), custo registrado no ledger.
-Validado: GLM-5.3 respondeu "S" (custou $0,0004).
+imagem ao vision model configurado (default `glm-5.3-flash`, chain com
+fallback), substitui o bloco por `[imagem N: <legenda>]` e segue. Cache por
+SHA-256 em `data/vision-cache.json` (repetir sai de graça), custo registrado
+no ledger. Validado: GLM-5.3 respondeu "S" (custou $0,0004).
+
+O legendador usa system prompt de "olhos do agente" (tipo da imagem, elementos
+com rótulos exatos e estados, transcrição integral de erros/código, "ilegível"
+em vez de adivinhar) + a pergunta do usuário como foco. Vazios nunca entram no
+cache; se tudo falhar, marcador honesto (anti-alucinação).
 
 ## 6. Reasoning switch
 
