@@ -24,7 +24,7 @@ import {
   anthropicError,
 } from "./anthropic-bridge.mjs";
 import {
-  shouldDecode, findImages, dataUrlOf, replaceWithCaption, describeImage, DEFAULT_VISION_MODEL, VISION_UNAVAILABLE_TEXT,
+  shouldDecode, findImages, dataUrlOf, replaceWithCaption, describeImage, DEFAULT_VISION_MODEL, VISION_UNAVAILABLE_TEXT, surroundingText,
 } from "./vision.mjs";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -143,13 +143,14 @@ async function decodeImages(body, model, policy) {
   if (!vEntry) return { decoded: 0, captionCost: 0 };
   const vModel = config.visionModel || DEFAULT_VISION_MODEL;
   const sessionId = randomUUID();
+  const hint = surroundingText(body);
   let cost = 0;
   let n = 0;
   for (const [i, f] of found.entries()) {
     try {
       const r = await describeImage(dataUrlOf(f), {
         key: vEntry.key, upstream: UPSTREAM, sessionId,
-        visionModel: vModel, dataDir: DATA_DIR,
+        visionModel: vModel, dataDir: DATA_DIR, hint,
       });
       for (const a of r.attempts) pool.record(vEntry, a.model, a.input, a.output);
       if (r.caption) {

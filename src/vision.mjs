@@ -69,6 +69,25 @@ export function shouldDecode(model, policy) {
   return NEEDS_DECODER.has(model); // auto
 }
 
+// Texto do usuario junto da imagem (p/ legenda focada na pergunta, nao generica).
+export function surroundingText(body, max = 500) {
+  const texts = [];
+  const visit = (node, role) => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      node.forEach((it) => visit(it, role));
+      return;
+    }
+    if (node.role === "user" || node.role === "assistant") role = node.role;
+    if (role === "user") {
+      if (node.type === "input_text" && node.text) texts.push(node.text);
+      if (node.type === "text" && node.text) texts.push(node.text);
+    }
+    for (const v of Object.values(node)) visit(v, role);
+  };
+  visit(body, null);
+  return texts.join("\n").slice(0, max);
+}
 // Localiza blocos de imagem (3 formatos) e retorna {node, parent, key} p/ troca in-place.
 export function findImages(body) {
   const found = [];
@@ -115,7 +134,7 @@ export function replaceWithCaption(found, caption, idx) {
 // Legenda via chain de vision models (com cache por hash).
 // Retorna {caption, usage, cached, cost, model, attempts:[{model,input,output}]}.
 // Vazios NUNCA entram no cache. Se tudo falhar, caption = null.
-export async function describeImage(dataUrl, { key, upstream, sessionId, visionModel, maxTokens = 300, dataDir }) {
+export async function describeImage(dataUrl, { key, upstream, sessionId, visionModel, maxTokens = 300, dataDir, hint }) {
   const { estimateUsd } = await import("./prices.mjs");
   const chain = buildChain(visionModel);
   const hash = createHash("sha256").update(dataUrl).digest("hex").slice(0, 32);
@@ -137,11 +156,11 @@ export async function describeImage(dataUrl, { key, upstream, sessionId, visionM
           max_tokens: maxTokens,
           stream: false,
           messages: [{
-            role: "user",
-            content: [
-              { type: "text", text: "Descreva esta imagem em detalhe, incluindo todo texto, letras, numeros e elementos visuais. Seja objetivo." },
-              { type: "image_url", image_url: { url: dataUrl } },
-            ],
+          role: "user",
+          content: [
+            { type: "text", text: "Descreva esta imagem em detalhe, incluindo todo texto, letras, numeros e elementos visuais. Seja objetivo." + (hint ? `\n\nContexto da pergunta do usuario (foque no que e relevante para ela): ${hint}` : "") },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
           }],
         }),
       });
