@@ -56,8 +56,55 @@ export function isStrictUpstream(id) {
   return STRICT_RES.some((re) => re.test(id));
 }
 
-// Validados em 2026-09-19: listados no /models mas o upstream responde
-// "Model is unavailable" (versoes superadas). Excluidos do catalogo gerado;
+// Janela de contexto REAL por modelo (fontes: OpenRouter + docs Go + catalogo legado).
+// auto_compact = 90% (regra observada nos catalogos: 943718 = 90% de 1048576).
+// gpt-5.6-luna: OpenRouter diz 1050000, mas o servico Go precifica por faixas
+// de 272K e o catalogo legado usava max 872000 -> conservador 872000.
+// omen-alpha: sem dado publico -> fallback 200000.
+const CONTEXT = {
+  "muse-spark-1.3-contributor": [1048576, 1048576],
+  "muse-spark-1.2-contributor": [1048576, 1048576],
+  "deepseek-v4.1-flash": [1048576, 1048576],
+  "deepseek-v4-pro": [1048576, 1048576],
+  "deepseek-v4-flash": [1048576, 1048576],
+  "deepseek-flash": [1048576, 1048576],
+  "deepseek-v4-flash-vision-exp": [1048576, 1048576],
+  "gpt-5.6-luna": [872000, 872000],
+  "kimi-k3": [1048576, 1048576],
+  "kimi-k2.7-code": [262144, 262144],
+  "kimi-k2.6": [262144, 262144],
+  "longcat-2.0": [1048576, 1048576],
+  "glm-5.3-flash": [1048576, 1048576],
+  "glm-5.3": [1048576, 1048576],
+  "glm-5.2": [1048576, 1048576],
+  "glm-5.1": [204800, 204800],
+  "qwen3.8-max": [1000000, 1000000],
+  "qwen3.8-flash": [1000000, 1000000],
+  "qwen3.7-max": [1000000, 1000000],
+  "qwen3.7-plus": [1000000, 1000000],
+  "qwen3.6-plus": [1000000, 1000000],
+  "minimax-m3": [1048576, 1048576],
+  "minimax-m2.7": [204800, 204800],
+  "minimax-m2.5": [204800, 204800],
+  "mimo-v2.5": [1050000, 1050000],
+  "mimo-v2.5-pro": [1050000, 1050000],
+  "hy4-preview": [1048576, 1048576],
+  "hy3": [262144, 262144],
+  "grok-4.6": [500000, 500000],
+  "omen-alpha": [200000, 200000],
+};
+
+export function contextFor(id) {
+  const [context_window, max_context_window] = CONTEXT[id] || [200000, 200000];
+  return {
+    context_window,
+    max_context_window,
+    auto_compact_token_limit: Math.floor(context_window * 0.9),
+    effective_context_window_percent: 90,
+  };
+}
+// Modelos listados no /models mas com upstream "Model is unavailable"
+// (versoes superadas). Excluidos do catalogo gerado;
 // para reativar, remova da lista (pode ser indisponibilidade temporaria).
 export const UNAVAILABLE = [
   "kimi-k2.5",

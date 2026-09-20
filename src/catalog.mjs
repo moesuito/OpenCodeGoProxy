@@ -7,7 +7,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const { displayName, reasoningFor, isStrictUpstream, UNAVAILABLE } = await import("./model-meta.mjs");
+const { displayName, reasoningFor, isStrictUpstream, UNAVAILABLE, contextFor } = await import("./model-meta.mjs");
 
 function readCfg() {
   try {
@@ -23,6 +23,7 @@ const BASE_INSTRUCTIONS =
 function entryFor(id) {
   const strict = isStrictUpstream(id);
   const rz = reasoningFor(id);
+  const cx = contextFor(id);
   const e = {
     slug: id,
     display_name: displayName(id),
@@ -49,10 +50,10 @@ function entryFor(id) {
     web_search_tool_type: "text",
     truncation_policy: { mode: "tokens", limit: 10000 },
     supports_image_detail_original: true,
-    context_window: 200000,
-    max_context_window: 200000,
-    auto_compact_token_limit: 180000,
-    effective_context_window_percent: 90,
+    context_window: cx.context_window,
+    max_context_window: cx.max_context_window,
+    auto_compact_token_limit: cx.auto_compact_token_limit,
+    effective_context_window_percent: cx.effective_context_window_percent,
     experimental_supported_tools: [],
     input_modalities: ["text"],
     supports_search_tool: false,
