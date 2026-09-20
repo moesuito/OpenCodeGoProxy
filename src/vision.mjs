@@ -25,9 +25,11 @@ export const NEEDS_DECODER = new Set([
 ]);
 
 export const DEFAULT_VISION_MODEL = "deepseek-v4-flash-vision-exp";
-// Chain: vision-exp engasga em imagens grandes (queima o budget em reasoning
-// e devolve vazio); kimi-k3 cobre esses casos. Testado em 2026-09-20.
-export const DEFAULT_VISION_CHAIN = [DEFAULT_VISION_MODEL, "kimi-k3"];
+// Chain barata primeiro: vision-exp (fotos normais) -> glm-5.3-flash ($0.15)
+// -> mimo-v2.5 ($0.14) -> kimi-k3 ($3, ultimo recurso). Testado em 2026-09-20:
+// vision-exp e deepseek-v4.1 queimam reasoning e devolvem vazio em 4000x3000;
+// glm-flash e mimo descrevem; kimi cobre o resto.
+export const DEFAULT_VISION_CHAIN = [DEFAULT_VISION_MODEL, "glm-5.3-flash", "mimo-v2.5", "kimi-k3"];
 
 export const VISION_UNAVAILABLE_TEXT =
   "anexo de imagem indisponivel para analise automatica — peca ao usuario que descreva o conteudo";
