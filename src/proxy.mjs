@@ -24,7 +24,7 @@ import {
   anthropicError,
 } from "./anthropic-bridge.mjs";
 import {
-  shouldDecode, findImages, dataUrlOf, replaceWithCaption, describeImage, DEFAULT_VISION_MODEL,
+  shouldDecode, findImages, dataUrlOf, replaceWithCaption, describeImage, DEFAULT_VISION_MODEL, VISION_UNAVAILABLE_TEXT,
 } from "./vision.mjs";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -142,6 +142,7 @@ async function decodeImages(body, model, policy) {
   const vEntry = pool.next(new Set());
   if (!vEntry) return { decoded: 0, captionCost: 0 };
   const vModel = config.visionModel || DEFAULT_VISION_MODEL;
+  const vChain = config.visionModels?.length ? config.visionModels : undefined;
   const sessionId = randomUUID();
   let cost = 0;
   let n = 0;
@@ -149,14 +150,18 @@ async function decodeImages(body, model, policy) {
     try {
       const r = await describeImage(dataUrlOf(f), {
         key: vEntry.key, upstream: UPSTREAM, sessionId,
-        visionModel: vModel, dataDir: DATA_DIR,
+        visionModel: vModel, visionModels: vChain, dataDir: DATA_DIR,
       });
-      replaceWithCaption(f, r.caption, n + 1);
-      n++;
-      if (!r.cached) {
-        pool.record(vEntry, r.model, r.usage.input, r.usage.output);
+      for (const a of r.attempts) pool.record(vEntry, a.model, a.input, a.output);
+      if (r.caption) {
+        replaceWithCaption(f, r.caption, n + 1);
         cost += r.cost;
+      } else {
+        // Tudo falhou: marcador honesto em vez de vazio (vazio alimenta alucinacao).
+        replaceWithCaption(f, VISION_UNAVAILABLE_TEXT, n + 1);
+        console.log(`[vision] ${model}: legenda falhou em toda a chain; marcador honesto aplicado`);
       }
+      n++;
     } catch (e) {
       console.log(`[vision] legenda falhou (${model}): ${e.message}`);
     }

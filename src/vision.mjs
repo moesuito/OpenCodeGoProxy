@@ -25,6 +25,12 @@ export const NEEDS_DECODER = new Set([
 ]);
 
 export const DEFAULT_VISION_MODEL = "deepseek-v4-flash-vision-exp";
+// Chain: vision-exp engasga em imagens grandes (queima o budget em reasoning
+// e devolve vazio); kimi-k3 cobre esses casos. Testado em 2026-09-20.
+export const DEFAULT_VISION_CHAIN = [DEFAULT_VISION_MODEL, "kimi-k3"];
+
+export const VISION_UNAVAILABLE_TEXT =
+  "anexo de imagem indisponivel para analise automatica — peca ao usuario que descreva o conteudo";
 
 function cachePath(dataDir) {
   return path.join(dataDir, "vision-cache.json");
@@ -95,40 +101,55 @@ export function replaceWithCaption(found, caption, idx) {
   if (found.parent && found.key !== null && found.key !== undefined) found.parent[found.key] = node;
 }
 
-// Legenda via vision model (com cache por hash). Retorna {caption, usage, cached, cost}.
-export async function describeImage(dataUrl, { key, upstream, sessionId, visionModel, maxTokens = 300, dataDir }) {
+// Legenda via chain de vision models (com cache por hash).
+// Retorna {caption, usage, cached, cost, model, attempts:[{model,input,output}]}.
+// Vazios NUNCA entram no cache. Se tudo falhar, caption = null.
+export async function describeImage(dataUrl, { key, upstream, sessionId, visionModels, maxTokens = 300, dataDir }) {
   const { estimateUsd } = await import("./prices.mjs");
-  const model = visionModel || DEFAULT_VISION_MODEL;
+  const chain = visionModels?.length ? visionModels : DEFAULT_VISION_CHAIN;
   const hash = createHash("sha256").update(dataUrl).digest("hex").slice(0, 32);
   const cache = loadVisionCache(dataDir);
-  if (cache[hash]) return { caption: cache[hash], usage: { input: 0, output: 0 }, cached: true, cost: 0, model };
-  const res = await fetch(`${upstream}/chat/completions`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${key}`,
-      "content-type": "application/json",
-      "x-opencode-session": sessionId,
-      "user-agent": "OpenCodeGoProxy/0.1.0",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      stream: false,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "text", text: "Descreva esta imagem em detalhe, incluindo todo texto, letras, numeros e elementos visuais. Seja objetivo." },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      }],
-    }),
-  });
-  if (!res.ok) throw new Error(`vision model -> ${res.status}`);
-  const j = await res.json();
-  const caption = (j.choices?.[0]?.message?.content || "").trim() || "(imagem sem descricao)";
-  const u = j.usage || {};
-  const usage = { input: u.prompt_tokens || 0, output: u.completion_tokens || 0 };
-  cache[hash] = caption;
-  saveVisionCache(dataDir, cache);
-  return { caption, usage, cached: false, cost: estimateUsd(model, usage.input, usage.output), model };
+  if (cache[hash]) return { caption: cache[hash], usage: { input: 0, output: 0 }, cached: true, cost: 0, model: chain[0], attempts: [] };
+  const attempts = [];
+  for (const model of chain) {
+    try {
+      const res = await fetch(`${upstream}/chat/completions`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${key}`,
+          "content-type": "application/json",
+          "x-opencode-session": sessionId,
+          "user-agent": "OpenCodeGoProxy/0.1.0",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          stream: false,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: "Descreva esta imagem em detalhe, incluindo todo texto, letras, numeros e elementos visuais. Seja objetivo." },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          }],
+        }),
+      });
+      if (!res.ok) throw new Error(`${model} -> ${res.status}`);
+      const j = await res.json();
+      const raw = j.choices?.[0]?.message?.content;
+      const text = (Array.isArray(raw) ? raw.map((c) => (typeof c === "string" ? c : c?.text || "")).join("") : String(raw || "")).trim();
+      const u = j.usage || {};
+      attempts.push({ model, input: u.prompt_tokens || 0, output: u.completion_tokens || 0 });
+      // Gate de qualidade: fragmento curto = truncado/inutil -> tenta o proximo.
+      if (text && text.length >= 80) {
+        cache[hash] = text;
+        saveVisionCache(dataDir, cache);
+        const last = attempts[attempts.length - 1];
+        return { caption: text, usage: { input: last.input, output: last.output }, cached: false, cost: estimateUsd(model, last.input, last.output), model, attempts };
+      }
+    } catch (e) {
+      attempts.push({ model, input: 0, output: 0, error: String(e.message || e).slice(0, 120) });
+    }
+  }
+  return { caption: null, usage: { input: 0, output: 0 }, cached: false, cost: 0, model: chain[0], attempts };
 }
